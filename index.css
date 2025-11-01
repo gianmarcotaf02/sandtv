@@ -1,6 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {
@@ -28,5 +26,6 @@
 
 /* Dark mode by default */
 body {
-  @apply bg-gray-900 text-white;
+  background-color: rgb(17 24 39);
+  color: rgb(255 255 255);
 }
