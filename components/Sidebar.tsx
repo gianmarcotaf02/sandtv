@@ -1,38 +1,23 @@
-import React, { useState } from 'react';
-import { Group } from '../types';
-import { PlusIcon, EditIcon, TrashIcon, StarIcon, GridIcon, Bars3Icon } from './icons';
+﻿import React, { useState } from 'react';
+import { Group, Channel } from '../types';
+import { PlusIcon, EditIcon, TrashIcon, Bars3Icon } from './icons';
 
 interface SidebarProps {
-  groups: { id: string, name: string }[];
+  groups: { id: string; name: string }[];
   customGroups: Group[];
   selectedGroup: string;
   onSelectGroup: (groupId: string) => void;
   onAddGroup: () => void;
   onEditGroup: (group: Group) => void;
   onDeleteGroup: (groupId: string) => void;
+  allChannels: Channel[];
+  getChannelsForGroup: (groupId: string) => Channel[];
 }
 
-// Funzione per ottenere l'icona del gruppo basata sul nome
-const getGroupIcon = (groupId: string, groupName: string) => {
-  // Icone predefinite
-  if (groupId === 'all') return '📺';
-  if (groupId === 'favorites') return '⭐';
-  if (groupId === 'uncategorized') return '📂';
-  
-  // Emoji automatica basata sul nome per gruppi personalizzati
-  const name = groupName.toLowerCase();
-  if (name.includes('sport') || name.includes('dazn') || name.includes('sky')) return '⚽';
-  if (name.includes('news') || name.includes('notizie')) return '📰';
-  if (name.includes('film') || name.includes('movie') || name.includes('cinema')) return '🎬';
-  if (name.includes('serie')) return '📺';
-  if (name.includes('music') || name.includes('musica')) return '🎵';
-  if (name.includes('kids') || name.includes('bambini') || name.includes('cartoon')) return '🎨';
-  if (name.includes('doc') || name.includes('cultura')) return '📚';
-  if (name.includes('intrattenimento') || name.includes('entertainment')) return '�';
-  if (name.includes('cucina') || name.includes('food')) return '🍳';
-  
-  // Default
-  return '📁';
+const getGroupLogo = (groupId: string, getChannels: (id: string) => Channel[]): string | null => {
+  const channels = getChannels(groupId);
+  const channelWithLogo = channels.find(ch => ch.logo);
+  return channelWithLogo?.logo || null;
 };
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -43,11 +28,13 @@ const Sidebar: React.FC<SidebarProps> = ({
   onAddGroup,
   onEditGroup,
   onDeleteGroup,
+  allChannels,
+  getChannelsForGroup,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const renderGroupItem = (group: { id: string; name: string }, isCustom: boolean = false) => {
-    const icon = getGroupIcon(group.id, group.name);
+    const logo = getGroupLogo(group.id, getChannelsForGroup);
     const isSelected = selectedGroup === group.id;
     
     return (
@@ -61,15 +48,20 @@ const Sidebar: React.FC<SidebarProps> = ({
           }`}
           title={!isExpanded ? group.name : ''}
         >
-          <span className="text-2xl flex-shrink-0 w-6 h-6 flex items-center justify-center">
-            {icon}
+          <span className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-white dark:bg-gray-800 rounded-lg overflow-hidden">
+            {logo ? (
+              <img src={logo} alt={group.name} className="w-full h-full object-contain p-1" />
+            ) : (
+              <span className="text-xs font-bold text-gray-500 dark:text-gray-400">
+                {group.name.substring(0, 2).toUpperCase()}
+              </span>
+            )}
           </span>
           {isExpanded && (
             <span className="truncate flex-grow text-sm font-medium">{group.name}</span>
           )}
         </button>
         
-        {/* Pulsanti edit/delete per gruppi custom (solo quando espanso) */}
         {isCustom && isExpanded && (
           <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <button 
@@ -96,7 +88,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         isExpanded ? 'w-64' : 'w-20'
       }`}
     >
-      {/* Header con toggle */}
       <div className="p-4 border-b border-gray-300 dark:border-white/10">
         <button
           onClick={() => setIsExpanded(!isExpanded)}
@@ -107,9 +98,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         </button>
       </div>
 
-      {/* Gruppi */}
       <div className="flex-grow overflow-y-auto p-3 space-y-6">
-        {/* Gruppi Predefiniti */}
         <div>
           {isExpanded && (
             <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 px-2">
@@ -121,7 +110,6 @@ const Sidebar: React.FC<SidebarProps> = ({
           </ul>
         </div>
 
-        {/* Gruppi Personalizzati */}
         <div>
           <div className="flex items-center justify-between mb-2 px-2">
             {isExpanded && (

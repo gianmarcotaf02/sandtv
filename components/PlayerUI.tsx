@@ -149,9 +149,27 @@ const PlayerUI: React.FC<PlayerUIProps> = ({
   const groups = useMemo(() => {
     const allChannelsGroup = { id: 'all', name: 'Tutti i Canali' };
     const favoritesGroup = { id: 'favorites', name: 'Preferiti' };
-    const channelGroups = [...new Set(channels.map(c => c.group))].sort().map(g => ({ id: g, name: g }));
-    return [allChannelsGroup, favoritesGroup, ...channelGroups];
+    const uncategorizedGroup = { id: 'uncategorized', name: 'Senza Categoria' };
+    const channelGroups = [...new Set(channels.map(c => c.group))].filter(g => g && g !== '').sort().map(g => ({ id: g, name: g }));
+    return [allChannelsGroup, favoritesGroup, uncategorizedGroup, ...channelGroups];
   }, [channels]);
+
+  // Function to get channels for a specific group (used by Sidebar for logos)
+  const getChannelsForGroup = useCallback((groupId: string): Channel[] => {
+    if (groupId === 'all') {
+      return channels;
+    } else if (groupId === 'favorites') {
+      return channels.filter(c => favorites.includes(c.id));
+    } else if (groupId === 'uncategorized') {
+      return channels.filter(c => !c.group || c.group === '');
+    } else if (customGroups.some(g => g.id === groupId)) {
+      const group = customGroups.find(g => g.id === groupId);
+      const channelIds = group?.channels || [];
+      return channels.filter(c => channelIds.includes(c.id));
+    } else {
+      return channels.filter(c => c.group === groupId);
+    }
+  }, [channels, favorites, customGroups]);
 
   const filteredChannels = useMemo(() => {
     let activeChannels = channels;
@@ -323,6 +341,8 @@ const PlayerUI: React.FC<PlayerUIProps> = ({
               onAddGroup={openAddGroupModal}
               onEditGroup={openEditGroupModal}
               onDeleteGroup={handleDeleteGroup}
+              allChannels={channels}
+              getChannelsForGroup={getChannelsForGroup}
             />
         </div>
         
