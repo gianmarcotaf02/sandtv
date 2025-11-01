@@ -48,6 +48,42 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
   const aspectButtonRef = useRef<HTMLButtonElement | null>(null);
   const hwAccelMenuRef = useRef<HTMLDivElement | null>(null);
   const hwAccelButtonRef = useRef<HTMLButtonElement | null>(null);
+  const [autoPipEnabled, setAutoPipEnabled] = useState(true); // Auto PiP abilitato di default
+
+  // Auto Picture-in-Picture quando cambi scheda/finestra
+  useEffect(() => {
+    const videoElement = videoRef.current;
+    if (!videoElement) return;
+
+    const handleVisibilityChange = async () => {
+      if (!autoPipEnabled) return;
+      
+      try {
+        // Se la scheda diventa nascosta e il video sta riproducendo
+        if (document.hidden && !videoElement.paused) {
+          // Attiva PiP se supportato
+          if (document.pictureInPictureEnabled && !document.pictureInPictureElement) {
+            await videoElement.requestPictureInPicture();
+            console.log('📺 PiP attivato automaticamente');
+          }
+        } 
+        // Se la scheda diventa visibile, esci da PiP
+        else if (!document.hidden && document.pictureInPictureElement) {
+          await document.exitPictureInPicture();
+          console.log('📺 PiP disattivato - scheda visibile');
+        }
+      } catch (error) {
+        console.log('PiP non disponibile:', error);
+      }
+    };
+
+    // Listener per cambio visibilità scheda
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [autoPipEnabled]);
 
   useEffect(() => {
     const videoElement = videoRef.current;
@@ -702,18 +738,35 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
                         </button>
                       )}
                       {document.pictureInPictureEnabled && (
-                        <button 
-                          onClick={togglePiP} 
-                          className="px-3 py-2 rounded-2xl bg-blue-600/90 hover:bg-blue-700 text-white text-sm font-semibold shadow-lg transition-all duration-200 flex items-center gap-1.5 border border-blue-500/50" 
-                          title="Picture-in-Picture" 
-                          aria-label="Picture-in-Picture"
-                        >
-                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <rect x="2" y="3" width="20" height="14" rx="2" />
-                            <rect x="13" y="11" width="7" height="6" rx="1" fill="currentColor" />
-                          </svg>
-                          <span>PiP</span>
-                        </button>
+                        <>
+                          <button 
+                            onClick={togglePiP} 
+                            className="px-3 py-2 rounded-2xl bg-blue-600/90 hover:bg-blue-700 text-white text-sm font-semibold shadow-lg transition-all duration-200 flex items-center gap-1.5 border border-blue-500/50" 
+                            title="Picture-in-Picture manuale" 
+                            aria-label="Picture-in-Picture"
+                          >
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <rect x="2" y="3" width="20" height="14" rx="2" />
+                              <rect x="13" y="11" width="7" height="6" rx="1" fill="currentColor" />
+                            </svg>
+                            <span>PiP</span>
+                          </button>
+                          <button
+                            onClick={() => setAutoPipEnabled(prev => !prev)}
+                            className={`px-3 py-2 rounded-2xl text-white text-xs font-semibold shadow-lg transition-all duration-200 flex items-center gap-1.5 border ${
+                              autoPipEnabled 
+                                ? 'bg-green-600/90 hover:bg-green-700 border-green-500/50' 
+                                : 'bg-gray-600/90 hover:bg-gray-700 border-gray-500/50'
+                            }`}
+                            title={`Auto-PiP quando cambi scheda: ${autoPipEnabled ? 'ON' : 'OFF'}`}
+                          >
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <rect x="2" y="3" width="20" height="14" rx="2" />
+                              <rect x="13" y="11" width="7" height="6" rx="1" fill="currentColor" />
+                            </svg>
+                            <span>Auto</span>
+                          </button>
+                        </>
                       )}
                         {onMinimize && (
                             <button onClick={onMinimize} className="text-white" title="Modalità Mini Player">
