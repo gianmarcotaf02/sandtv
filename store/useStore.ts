@@ -128,7 +128,7 @@ const initialSettings: Settings = {
   parentalControlEnabled: false,
   parentalControlPin: null,
   language: 'it',
-  pipAuto: false,
+  pipAuto: true, // Auto-PiP attivo di default
   hardwareAcceleration: 'disabled', // Temporaneamente disabilitato per test
 };
 

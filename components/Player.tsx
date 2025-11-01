@@ -48,7 +48,6 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
   const aspectButtonRef = useRef<HTMLButtonElement | null>(null);
   const hwAccelMenuRef = useRef<HTMLDivElement | null>(null);
   const hwAccelButtonRef = useRef<HTMLButtonElement | null>(null);
-  const [autoPipEnabled, setAutoPipEnabled] = useState(true); // Auto PiP abilitato di default
 
   // Auto Picture-in-Picture quando cambi scheda/finestra
   useEffect(() => {
@@ -56,7 +55,8 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
     if (!videoElement) return;
 
     const handleVisibilityChange = async () => {
-      if (!autoPipEnabled) return;
+      // Usa l'impostazione dal settings store
+      if (!settings.pipAuto) return;
       
       try {
         // Se la scheda diventa nascosta e il video sta riproducendo
@@ -83,7 +83,7 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [autoPipEnabled]);
+  }, [settings.pipAuto]);
 
   useEffect(() => {
     const videoElement = videoRef.current;
@@ -629,11 +629,44 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
       {/* Screen Mirroring Button - Top Right Corner */}
       <div className={`absolute top-4 right-4 z-30 transition-opacity duration-300 ${showOverlay ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
         <button 
-          onClick={() => {
-            if (videoRef.current) {
-              // Request remote playback (Chromecast, AirPlay, etc.)
-              if ('remote' in videoRef.current) {
-                (videoRef.current as any).remote.prompt();
+          onClick={async () => {
+            const video = videoRef.current;
+            if (!video) return;
+            
+            try {
+              // Try different methods for casting
+              
+              // 1. Remote Playback API (Chromecast)
+              if ('remote' in video && (video as any).remote) {
+                await (video as any).remote.prompt();
+                console.log('✅ Chromecast prompt opened');
+                return;
+              }
+              
+              // 2. WebKit Presentation API (AirPlay on Safari)
+              if ((video as any).webkitShowPlaybackTargetPicker) {
+                (video as any).webkitShowPlaybackTargetPicker();
+                console.log('✅ AirPlay picker opened');
+                return;
+              }
+              
+              // 3. Presentation API (generic)
+              if ('PresentationRequest' in window) {
+                const request = new (window as any).PresentationRequest([channel?.url]);
+                await request.start();
+                console.log('✅ Presentation started');
+                return;
+              }
+              
+              // Nessun metodo supportato
+              alert('⚠️ Screen mirroring non supportato su questo browser.\n\nProva con:\n- Chrome/Edge per Chromecast\n- Safari per AirPlay');
+            } catch (error: any) {
+              if (error.name === 'NotAllowedError') {
+                console.log('❌ Utente ha annullato');
+              } else if (error.name === 'NotSupportedError') {
+                alert('⚠️ Nessun dispositivo di casting disponibile');
+              } else {
+                console.error('Errore casting:', error);
               }
             }
           }}
@@ -738,35 +771,18 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
                         </button>
                       )}
                       {document.pictureInPictureEnabled && (
-                        <>
-                          <button 
-                            onClick={togglePiP} 
-                            className="px-3 py-2 rounded-2xl bg-blue-600/90 hover:bg-blue-700 text-white text-sm font-semibold shadow-lg transition-all duration-200 flex items-center gap-1.5 border border-blue-500/50" 
-                            title="Picture-in-Picture manuale" 
-                            aria-label="Picture-in-Picture"
-                          >
-                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <rect x="2" y="3" width="20" height="14" rx="2" />
-                              <rect x="13" y="11" width="7" height="6" rx="1" fill="currentColor" />
-                            </svg>
-                            <span>PiP</span>
-                          </button>
-                          <button
-                            onClick={() => setAutoPipEnabled(prev => !prev)}
-                            className={`px-3 py-2 rounded-2xl text-white text-xs font-semibold shadow-lg transition-all duration-200 flex items-center gap-1.5 border ${
-                              autoPipEnabled 
-                                ? 'bg-green-600/90 hover:bg-green-700 border-green-500/50' 
-                                : 'bg-gray-600/90 hover:bg-gray-700 border-gray-500/50'
-                            }`}
-                            title={`Auto-PiP quando cambi scheda: ${autoPipEnabled ? 'ON' : 'OFF'}`}
-                          >
-                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <rect x="2" y="3" width="20" height="14" rx="2" />
-                              <rect x="13" y="11" width="7" height="6" rx="1" fill="currentColor" />
-                            </svg>
-                            <span>Auto</span>
-                          </button>
-                        </>
+                        <button 
+                          onClick={togglePiP} 
+                          className="px-3 py-2 rounded-2xl bg-blue-600/90 hover:bg-blue-700 text-white text-sm font-semibold shadow-lg transition-all duration-200 flex items-center gap-1.5 border border-blue-500/50" 
+                          title="Picture-in-Picture" 
+                          aria-label="Picture-in-Picture"
+                        >
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <rect x="2" y="3" width="20" height="14" rx="2" />
+                            <rect x="13" y="11" width="7" height="6" rx="1" fill="currentColor" />
+                          </svg>
+                          <span>PiP</span>
+                        </button>
                       )}
                         {onMinimize && (
                             <button onClick={onMinimize} className="text-white" title="Modalità Mini Player">
