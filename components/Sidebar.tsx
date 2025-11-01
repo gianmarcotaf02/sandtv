@@ -10,33 +10,26 @@ interface SidebarProps {
   onAddGroup: () => void;
   onEditGroup: (group: Group) => void;
   onDeleteGroup: (groupId: string) => void;
-  channels?: any[]; // Per generare icone automatiche
 }
 
-// Funzione per ottenere l'icona del gruppo basata sui canali
-const getGroupIcon = (groupId: string, groupName: string, channels?: any[]) => {
+// Funzione per ottenere l'icona del gruppo basata sul nome
+const getGroupIcon = (groupId: string, groupName: string) => {
   // Icone predefinite
   if (groupId === 'all') return '📺';
   if (groupId === 'favorites') return '⭐';
   if (groupId === 'uncategorized') return '📂';
   
-  // Per gruppi personalizzati, cerca il logo del primo canale
-  if (channels && channels.length > 0) {
-    const firstChannel = channels[0];
-    if (firstChannel?.logo) {
-      return <img src={firstChannel.logo} alt="" className="w-6 h-6 object-contain rounded" />;
-    }
-  }
-  
-  // Fallback: emoji basata sul nome
+  // Emoji automatica basata sul nome per gruppi personalizzati
   const name = groupName.toLowerCase();
-  if (name.includes('sport')) return '⚽';
+  if (name.includes('sport') || name.includes('dazn') || name.includes('sky')) return '⚽';
   if (name.includes('news') || name.includes('notizie')) return '📰';
-  if (name.includes('film') || name.includes('movie')) return '🎬';
-  if (name.includes('serie') || name.includes('tv')) return '📺';
+  if (name.includes('film') || name.includes('movie') || name.includes('cinema')) return '🎬';
+  if (name.includes('serie')) return '📺';
   if (name.includes('music') || name.includes('musica')) return '🎵';
-  if (name.includes('kids') || name.includes('bambini')) return '🎨';
-  if (name.includes('doc')) return '📚';
+  if (name.includes('kids') || name.includes('bambini') || name.includes('cartoon')) return '🎨';
+  if (name.includes('doc') || name.includes('cultura')) return '📚';
+  if (name.includes('intrattenimento') || name.includes('entertainment')) return '�';
+  if (name.includes('cucina') || name.includes('food')) return '🍳';
   
   // Default
   return '📁';
@@ -50,12 +43,11 @@ const Sidebar: React.FC<SidebarProps> = ({
   onAddGroup,
   onEditGroup,
   onDeleteGroup,
-  channels,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const renderGroupItem = (group: { id: string; name: string }, isCustom: boolean = false) => {
-    const icon = getGroupIcon(group.id, group.name, channels);
+    const icon = getGroupIcon(group.id, group.name);
     const isSelected = selectedGroup === group.id;
     
     return (
@@ -70,7 +62,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           title={!isExpanded ? group.name : ''}
         >
           <span className="text-2xl flex-shrink-0 w-6 h-6 flex items-center justify-center">
-            {typeof icon === 'string' ? icon : icon}
+            {icon}
           </span>
           {isExpanded && (
             <span className="truncate flex-grow text-sm font-medium">{group.name}</span>

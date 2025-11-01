@@ -323,7 +323,6 @@ const PlayerUI: React.FC<PlayerUIProps> = ({
               onAddGroup={openAddGroupModal}
               onEditGroup={openEditGroupModal}
               onDeleteGroup={handleDeleteGroup}
-              channels={filteredChannels}
             />
         </div>
         
