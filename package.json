@@ -1,0 +1,30 @@
+{
+  "name": "sandtv",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@tanstack/react-virtual": "^3.13.12",
+    "dexie": "^4.2.1",
+    "firebase": "^12.4.0",
+    "framer-motion": "^12.23.24",
+    "hls.js": "^1.6.13",
+    "lucide-react": "^0.548.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-hot-toast": "^2.6.0",
+    "zustand": "^5.0.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "terser": "^5.44.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
+  }
+}
