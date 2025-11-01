@@ -49,42 +49,6 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
   const hwAccelMenuRef = useRef<HTMLDivElement | null>(null);
   const hwAccelButtonRef = useRef<HTMLButtonElement | null>(null);
 
-  // Auto Picture-in-Picture quando cambi scheda/finestra
-  useEffect(() => {
-    const videoElement = videoRef.current;
-    if (!videoElement) return;
-
-    const handleVisibilityChange = async () => {
-      // Usa l'impostazione dal settings store
-      if (!settings.pipAuto) return;
-      
-      try {
-        // Se la scheda diventa nascosta e il video sta riproducendo
-        if (document.hidden && !videoElement.paused) {
-          // Attiva PiP se supportato
-          if (document.pictureInPictureEnabled && !document.pictureInPictureElement) {
-            await videoElement.requestPictureInPicture();
-            console.log('📺 PiP attivato automaticamente');
-          }
-        } 
-        // Se la scheda diventa visibile, esci da PiP
-        else if (!document.hidden && document.pictureInPictureElement) {
-          await document.exitPictureInPicture();
-          console.log('📺 PiP disattivato - scheda visibile');
-        }
-      } catch (error) {
-        console.log('PiP non disponibile:', error);
-      }
-    };
-
-    // Listener per cambio visibilità scheda
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [settings.pipAuto]);
-
   useEffect(() => {
     const videoElement = videoRef.current;
     if (!videoElement) return;
@@ -164,6 +128,42 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
 
   // Picture-in-Picture support + auto-PiP when enabled in settings
   const { settings, setPlayerState, updateSettings } = useStore();
+
+  // Auto Picture-in-Picture quando cambi scheda/finestra
+  useEffect(() => {
+    const videoElement = videoRef.current;
+    if (!videoElement) return;
+
+    const handleVisibilityChange = async () => {
+      // Usa l'impostazione dal settings store
+      if (!settings.pipAuto) return;
+      
+      try {
+        // Se la scheda diventa nascosta e il video sta riproducendo
+        if (document.hidden && !videoElement.paused) {
+          // Attiva PiP se supportato
+          if (document.pictureInPictureEnabled && !document.pictureInPictureElement) {
+            await videoElement.requestPictureInPicture();
+            console.log('📺 PiP attivato automaticamente');
+          }
+        } 
+        // Se la scheda diventa visibile, esci da PiP
+        else if (!document.hidden && document.pictureInPictureElement) {
+          await document.exitPictureInPicture();
+          console.log('📺 PiP disattivato - scheda visibile');
+        }
+      } catch (error) {
+        console.log('PiP non disponibile:', error);
+      }
+    };
+
+    // Listener per cambio visibilità scheda
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [settings.pipAuto]);
 
   const togglePiP = async () => {
     const video = videoRef.current;
