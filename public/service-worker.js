@@ -1,5 +1,5 @@
 // SandTV Service Worker
-const CACHE_NAME = 'sandtv-v1';
+const CACHE_NAME = 'sandtv-v2';
 const urlsToCache = [
   '/',
   '/index.html',
