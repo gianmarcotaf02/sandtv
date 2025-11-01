@@ -27,7 +27,7 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
   const overlayTimeoutRef = useRef<number | null>(null);
 
   const [isPlaying, setIsPlaying] = useState(true);
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(true); // Start muted for autoplay
   const [volume, setVolume] = useState(1);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -608,7 +608,7 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
       <video 
         ref={videoRef} 
         autoPlay 
-        muted={false}
+        muted={true}
         playsInline
         controls={false}
         preload="auto"
