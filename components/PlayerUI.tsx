@@ -301,10 +301,10 @@ const PlayerUI: React.FC<PlayerUIProps> = ({
         onLogout={handleLogout}
       />
       <div className="flex flex-grow relative overflow-hidden">
-        {/* Mobile Overlay */}
+        {/* Mobile Overlay - Only on mobile and tablet */}
         {(isSidebarOpen || isChannelListOpen || isEpgSettingsOpen) && (
             <div
-              className="fixed inset-0 bg-black/60 z-20 md:hidden"
+              className="fixed inset-0 bg-black/60 z-20 lg:hidden"
               onClick={() => {
                 setIsSidebarOpen(false);
                 setIsChannelListOpen(false);
@@ -313,8 +313,8 @@ const PlayerUI: React.FC<PlayerUIProps> = ({
             />
         )}
 
-        {/* Sidebar */}
-        <div className={`fixed inset-y-0 left-0 z-30 transform transition-transform duration-300 ease-in-out md:static md:translate-x-0 h-full ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        {/* Sidebar - Hidden on tablet portrait, visible on desktop */}
+        <div className={`fixed inset-y-0 left-0 z-30 transform transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 h-full ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
             <Sidebar
               groups={groups}
               customGroups={customGroups}
@@ -345,7 +345,8 @@ const PlayerUI: React.FC<PlayerUIProps> = ({
                     </div>
                   </div>
                 )}
-                <div className={`fixed top-14 bottom-0 right-0 z-30 transform transition-transform duration-300 ease-in-out bg-gray-100/95 dark:bg-gray-900/50 backdrop-blur-lg border-l border-gray-300 dark:border-white/10 md:static md:top-0 md:translate-x-0 md:bg-transparent md:backdrop-blur-none md:border-l-0 ${isChannelListOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+                {/* Channel List - Fixed overlay on tablet portrait, static on desktop */}
+                <div className={`fixed top-14 bottom-0 right-0 z-30 transform transition-transform duration-300 ease-in-out bg-gray-100/95 dark:bg-gray-900/50 backdrop-blur-lg border-l border-gray-300 dark:border-white/10 lg:static lg:top-0 lg:translate-x-0 lg:bg-transparent lg:backdrop-blur-none lg:border-l-0 ${isChannelListOpen ? 'translate-x-0' : 'translate-x-full'}`}>
                     <ChannelList
                       channels={filteredChannels}
                       currentChannel={currentChannel}
@@ -409,9 +410,9 @@ const PlayerUI: React.FC<PlayerUIProps> = ({
       {/* EPG Settings Panel */}
       {isEpgSettingsOpen && (
         <>
-          {/* Overlay per chiudere cliccando fuori */}
+          {/* Overlay per chiudere cliccando fuori - mobile and tablet only */}
           <div 
-            className="fixed inset-0 bg-black/30 z-30 md:hidden backdrop-blur-sm"
+            className="fixed inset-0 bg-black/30 z-30 lg:hidden backdrop-blur-sm"
             onClick={() => setIsEpgSettingsOpen(false)}
           />
           <div className="fixed top-14 right-0 bottom-0 z-40 transform transition-transform duration-300 ease-in-out shadow-xl">

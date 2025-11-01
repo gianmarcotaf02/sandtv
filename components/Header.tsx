@@ -50,9 +50,10 @@ const Header: React.FC<HeaderProps> = ({
   return (
     <header className="flex-shrink-0 bg-gray-900/70 backdrop-blur-lg border-b border-white/10 p-3 flex items-center justify-between z-20 shadow-lg transition-colors duration-300">
       <div className="flex items-center space-x-2">
+        {/* Hamburger menu - visible only on mobile and tablet portrait, hidden on desktop */}
         <button
           onClick={onToggleSidebar}
-          className="p-2 rounded-xl text-gray-300 hover:bg-gray-700/60 md:hidden"
+          className="p-2 rounded-xl text-gray-300 hover:bg-gray-700/60 lg:hidden"
         >
           <Bars3Icon className="w-6 h-6" />
         </button>
@@ -153,9 +154,10 @@ const Header: React.FC<HeaderProps> = ({
             ◻ EPG
           </button>
         </div>
+        {/* Channel List toggle - visible on mobile and tablet, hidden on desktop */}
         <button
           onClick={onToggleChannelList}
-          className="p-2 rounded-xl text-gray-300 hover:bg-gray-700/60 md:hidden"
+          className="p-2 rounded-xl text-gray-300 hover:bg-gray-700/60 lg:hidden"
         >
           <ListBulletIcon className="w-6 h-6" />
         </button>
