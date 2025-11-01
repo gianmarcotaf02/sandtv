@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useStore } from '../store/useStore';
 import { Channel, EpgData } from '../types';
-import { PlayIcon, PauseIcon, VolumeUpIcon, VolumeOffIcon, FullscreenEnterIcon, FullscreenExitIcon, MinimizeIcon, AspectRatioIcon } from './icons';
+import { PlayIcon, PauseIcon, VolumeUpIcon, VolumeOffIcon, FullscreenEnterIcon, FullscreenExitIcon, MinimizeIcon, AspectRatioIcon, ScreenMirroringIcon } from './icons';
 
 // Dichiarazione per TypeScript
 declare const Hls: any;
@@ -589,6 +589,25 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
         // Hardware acceleration hints
         webkit-playsinline="true"
       />
+      
+      {/* Screen Mirroring Button - Top Right Corner */}
+      <div className={`absolute top-4 right-4 z-30 transition-opacity duration-300 ${showOverlay ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+        <button 
+          onClick={() => {
+            if (videoRef.current) {
+              // Request remote playback (Chromecast, AirPlay, etc.)
+              if ('remote' in videoRef.current) {
+                (videoRef.current as any).remote.prompt();
+              }
+            }
+          }}
+          className="bg-black/60 hover:bg-black/80 backdrop-blur-sm text-white p-3 rounded-full transition-all duration-200 hover:scale-110 shadow-lg border border-white/20"
+          title="Trasmetti su TV (Chromecast, AirPlay)"
+        >
+          <ScreenMirroringIcon className="w-6 h-6" />
+        </button>
+      </div>
+      
       {/* Center click area: large invisible zone that toggles play/pause when clicked
           Use pointer-events so controls (which have higher z) still receive clicks */}
       <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
