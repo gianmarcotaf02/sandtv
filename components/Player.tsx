@@ -424,11 +424,29 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
     
     const onFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', onFullscreenChange);
+    
+    // iOS fullscreen events
+    const video = videoRef.current;
+    const onWebkitFullscreenChange = () => {
+      const isInFullscreen = (video as any)?.webkitDisplayingFullscreen;
+      setIsFullscreen(!!isInFullscreen);
+    };
+    
+    if (video) {
+      video.addEventListener('webkitbeginfullscreen', () => setIsFullscreen(true));
+      video.addEventListener('webkitendfullscreen', () => setIsFullscreen(false));
+    }
 
     return () => {
       container?.removeEventListener('mousemove', handleMouseMove);
       container?.removeEventListener('mouseleave', handleMouseLeave);
       document.removeEventListener('fullscreenchange', onFullscreenChange);
+      
+      if (video) {
+        video.removeEventListener('webkitbeginfullscreen', () => setIsFullscreen(true));
+        video.removeEventListener('webkitendfullscreen', () => setIsFullscreen(false));
+      }
+      
       if (overlayTimeoutRef.current) {
         clearTimeout(overlayTimeoutRef.current);
       }
@@ -469,14 +487,32 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
   };
 
   const toggleFullscreen = () => {
+    const video = videoRef.current;
     const container = playerContainerRef.current;
-    if (!container) return;
-    if (!document.fullscreenElement) {
-      container.requestFullscreen().catch(err => {
-        alert(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
-      });
+    if (!video || !container) return;
+    
+    // Detect iOS devices
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    
+    if (isIOS) {
+      // Use native iOS fullscreen for better integration and stability
+      if ((video as any).webkitEnterFullscreen) {
+        try {
+          (video as any).webkitEnterFullscreen();
+          setIsFullscreen(true);
+        } catch (err) {
+          console.error('Error entering iOS fullscreen:', err);
+        }
+      }
     } else {
-      document.exitFullscreen();
+      // Use standard Fullscreen API for other browsers
+      if (!document.fullscreenElement) {
+        container.requestFullscreen().catch(err => {
+          console.error(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+        });
+      } else {
+        document.exitFullscreen();
+      }
     }
   };
 
@@ -622,8 +658,9 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
           transform: settings.hardwareAcceleration !== 'disabled' ? 'translateZ(0)' : undefined,
         }}
         onClick={togglePlay}
-        // Hardware acceleration hints
+        // iOS-specific attributes for better native integration
         webkit-playsinline="true"
+        x-webkit-airplay="allow"
       />
       
       {/* Screen Mirroring Button - Top Right Corner */}
