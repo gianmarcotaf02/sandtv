@@ -427,14 +427,17 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
     
     // iOS fullscreen events
     const video = videoRef.current;
-    const onWebkitFullscreenChange = () => {
-      const isInFullscreen = (video as any)?.webkitDisplayingFullscreen;
-      setIsFullscreen(!!isInFullscreen);
+    const onWebkitBeginFullscreen = () => setIsFullscreen(true);
+    const onWebkitEndFullscreen = () => setIsFullscreen(false);
+    const onWebkitPresentationModeChanged = (e: Event) => {
+      const mode = (video as any)?.webkitPresentationMode;
+      setIsFullscreen(mode === 'fullscreen');
     };
     
     if (video) {
-      video.addEventListener('webkitbeginfullscreen', () => setIsFullscreen(true));
-      video.addEventListener('webkitendfullscreen', () => setIsFullscreen(false));
+      video.addEventListener('webkitbeginfullscreen', onWebkitBeginFullscreen);
+      video.addEventListener('webkitendfullscreen', onWebkitEndFullscreen);
+      video.addEventListener('webkitpresentationmodechanged', onWebkitPresentationModeChanged);
     }
 
     return () => {
@@ -443,8 +446,9 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
       document.removeEventListener('fullscreenchange', onFullscreenChange);
       
       if (video) {
-        video.removeEventListener('webkitbeginfullscreen', () => setIsFullscreen(true));
-        video.removeEventListener('webkitendfullscreen', () => setIsFullscreen(false));
+        video.removeEventListener('webkitbeginfullscreen', onWebkitBeginFullscreen);
+        video.removeEventListener('webkitendfullscreen', onWebkitEndFullscreen);
+        video.removeEventListener('webkitpresentationmodechanged', onWebkitPresentationModeChanged);
       }
       
       if (overlayTimeoutRef.current) {
@@ -496,13 +500,32 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
     
     if (isIOS) {
       // Use native iOS fullscreen for better integration and stability
-      if ((video as any).webkitEnterFullscreen) {
-        try {
-          (video as any).webkitEnterFullscreen();
-          setIsFullscreen(true);
-        } catch (err) {
-          console.error('Error entering iOS fullscreen:', err);
+      try {
+        // Try webkitSetPresentationMode first (modern iOS)
+        if (typeof (video as any).webkitSetPresentationMode === 'function') {
+          const currentMode = (video as any).webkitPresentationMode;
+          if (currentMode === 'fullscreen') {
+            (video as any).webkitSetPresentationMode('inline');
+            setIsFullscreen(false);
+          } else {
+            (video as any).webkitSetPresentationMode('fullscreen');
+            setIsFullscreen(true);
+          }
         }
+        // Fallback to webkitEnterFullscreen for older iOS
+        else if (typeof (video as any).webkitEnterFullscreen === 'function') {
+          if ((video as any).webkitDisplayingFullscreen) {
+            (video as any).webkitExitFullscreen();
+            setIsFullscreen(false);
+          } else {
+            (video as any).webkitEnterFullscreen();
+            setIsFullscreen(true);
+          }
+        } else {
+          console.warn('iOS fullscreen not supported on this device');
+        }
+      } catch (err) {
+        console.error('Error toggling iOS fullscreen:', err);
       }
     } else {
       // Use standard Fullscreen API for other browsers

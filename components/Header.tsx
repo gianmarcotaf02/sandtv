@@ -73,14 +73,26 @@ const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
       
-      <div className="flex-1 px-4 md:px-8">
-        <input
-          type="text"
-          placeholder="Cerca canali..."
-          value={searchQuery}
-          onChange={(e) => onSearchChange(e.target.value)}
-          className="bg-gray-800/60 text-white placeholder-gray-400 rounded-xl px-3 py-1.5 w-full focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-700"
-        />
+      <div className="flex-1 px-2 md:px-8">
+        {/* Mobile: solo icona lente, Desktop: barra completa */}
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Cerca canali..."
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="bg-gray-800/60 text-white placeholder-gray-400 rounded-xl px-3 py-1.5 w-full md:w-auto md:min-w-[300px] focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-700 pl-9 md:pl-3"
+          />
+          {/* Icona lente visibile solo su mobile */}
+          <svg 
+            className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 md:hidden"
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
       </div>
 
       <div className="flex items-center space-x-2">
@@ -100,15 +112,17 @@ const Header: React.FC<HeaderProps> = ({
         ) : (
           <button
             onClick={onOpenAuth}
-            className="px-3 py-1.5 rounded-xl text-white bg-gray-700/80 hover:bg-gray-600/80 flex items-center text-sm font-semibold border border-gray-600"
+            className="p-2 md:px-3 md:py-1.5 rounded-xl text-white bg-gray-700/80 hover:bg-gray-600/80 flex items-center text-sm font-semibold border border-gray-600"
           >
             <UserIcon className="w-5 h-5 md:mr-2" />
             <span className="hidden md:inline">Accedi / Registrati</span>
           </button>
         )}
+        {/* Bottone tema: nascosto su mobile, visibile su desktop */}
         <button
           onClick={onToggleTheme}
-          className="p-2 rounded-xl text-gray-300 hover:bg-gray-700/60"
+          className="hidden md:block p-2 rounded-xl text-gray-300 hover:bg-gray-700/60"
+          title={theme === 'dark' ? 'Tema chiaro' : 'Tema scuro'}
         >
           {theme === 'dark' ? <SunIcon className="w-5 h-5" /> : <MoonIcon className="w-5 h-5" />}
         </button>
@@ -119,7 +133,9 @@ const Header: React.FC<HeaderProps> = ({
         >
           <SettingsIcon className="w-5 h-5" />
         </button>
-        <div className="hidden md:flex items-center space-x-2">
+        {/* Bottoni vista: aggiungi vista griglia su mobile */}
+        <div className="flex items-center space-x-1">
+          {/* Vista lista - sempre visibile */}
           <button
             onClick={() => onViewChange('LIST')}
             className={`p-2 rounded-xl ${
@@ -131,6 +147,7 @@ const Header: React.FC<HeaderProps> = ({
           >
             <ListIcon className="w-5 h-5" />
           </button>
+          {/* Vista griglia - ora visibile anche su mobile */}
           <button
             onClick={() => onViewChange('GRID')}
             className={`p-2 rounded-xl ${
@@ -142,9 +159,10 @@ const Header: React.FC<HeaderProps> = ({
           >
             <GridIconView className="w-5 h-5" />
           </button>
+          {/* Vista EPG - solo desktop */}
           <button
             onClick={() => onViewChange('EPG')}
-            className={`px-3 py-1.5 rounded-xl text-sm font-semibold ${
+            className={`hidden md:block px-3 py-1.5 rounded-xl text-sm font-semibold ${
               view === 'EPG'
                 ? 'bg-blue-600 text-white'
                 : 'text-white bg-gray-700/80 hover:bg-gray-600/80 border border-gray-600'
