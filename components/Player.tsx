@@ -129,39 +129,48 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
   // Picture-in-Picture support + auto-PiP when enabled in settings
   const { settings, setPlayerState, updateSettings } = useStore();
 
-  // Auto Picture-in-Picture quando cambi scheda/finestra
+  // Auto Picture-in-Picture - gestione unificata e ottimizzata
   useEffect(() => {
     const videoElement = videoRef.current;
     if (!videoElement) return;
 
-    const handleVisibilityChange = async () => {
-      // Usa l'impostazione dal settings store
+    const handleAutoPiP = async () => {
+      // Verifica impostazione
       if (!settings.pipAuto) return;
+      if (!document.pictureInPictureEnabled) return;
+      
+      console.log('📺 PiP Auto - Stato:', {
+        hidden: document.hidden,
+        paused: videoElement.paused,
+        pipActive: !!document.pictureInPictureElement
+      });
       
       try {
-        // Se la scheda diventa nascosta e il video sta riproducendo
+        // Se la scheda è nascosta E il video sta riproducendo
         if (document.hidden && !videoElement.paused) {
-          // Attiva PiP se supportato
-          if (document.pictureInPictureEnabled && !document.pictureInPictureElement) {
+          // Attiva PiP se non è già attivo
+          if (!document.pictureInPictureElement) {
             await videoElement.requestPictureInPicture();
-            console.log('📺 PiP attivato automaticamente');
+            console.log('✅ PiP attivato (scheda nascosta)');
           }
         } 
-        // Se la scheda diventa visibile, esci da PiP
+        // Se la scheda è visibile E PiP è attivo
         else if (!document.hidden && document.pictureInPictureElement) {
+          // Esci da PiP
           await document.exitPictureInPicture();
-          console.log('📺 PiP disattivato - scheda visibile');
+          console.log('✅ PiP disattivato (scheda visibile)');
         }
       } catch (error) {
-        console.log('PiP non disponibile:', error);
+        // Ignora errori (es. interazione utente richiesta)
+        console.warn('⚠️ PiP errore:', error);
       }
     };
 
-    // Listener per cambio visibilità scheda
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    // Listener per cambio visibilità scheda (funziona anche cambiando tab)
+    document.addEventListener('visibilitychange', handleAutoPiP);
 
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('visibilitychange', handleAutoPiP);
     };
   }, [settings.pipAuto]);
 
@@ -193,42 +202,7 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
       video.removeEventListener('enterpictureinpicture', onEnter as EventListener);
       video.removeEventListener('leavepictureinpicture', onLeave as EventListener);
     };
-  }, [videoRef.current]);
-
-  // Auto PiP on visibility change / blur if setting enabled
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    const handleAutoPiP = async () => {
-      if (!settings.pipAuto) return;
-      if (!document.pictureInPictureEnabled) return;
-      
-      try {
-        if (document.hidden || !document.hasFocus()) {
-          // Attiva PiP solo se il video è in riproduzione (non in pausa)
-          if (!video.paused && !document.pictureInPictureElement) {
-            await (video as any).requestPictureInPicture();
-          }
-        } else {
-          // Esci da PiP quando torni alla scheda
-          if (document.pictureInPictureElement) {
-            await document.exitPictureInPicture();
-          }
-        }
-      } catch (err) {
-        // ignore
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleAutoPiP);
-    window.addEventListener('blur', handleAutoPiP);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleAutoPiP);
-      window.removeEventListener('blur', handleAutoPiP);
-    };
-  }, [settings.pipAuto, videoRef.current]);
+  }, [setPlayerState]);
 
   // Cleanup HLS on unmount
   useEffect(() => {
