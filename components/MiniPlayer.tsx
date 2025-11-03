@@ -18,9 +18,19 @@ const MiniPlayer: React.FC<MiniPlayerProps> = ({ channel, epgData, onClose, onEx
   const hlsRef = useRef<any>(null);
   const [isPlaying, setIsPlaying] = useState(true);
   
-  // ⚡ Usa la stessa logica del Player principale per il mute
-  const { settings, updateSettings } = useStore();
-  const [isMuted, setIsMuted] = useState(!settings.hasUserUnmuted);
+  // ⚡ USA LO STATO GLOBALE invece dello stato locale
+  const { settings, updateSettings, player, setPlayerState } = useStore();
+  const isMuted = player.isMuted;
+  const volume = player.volume;
+
+  // ⚡ Inizializza il video element con lo stato dallo store
+  useEffect(() => {
+    const videoElement = videoRef.current;
+    if (!videoElement) return;
+    
+    videoElement.muted = isMuted;
+    videoElement.volume = volume;
+  }, []); // Solo al mount
 
   // Setup video and HLS
   useEffect(() => {
@@ -89,6 +99,15 @@ const MiniPlayer: React.FC<MiniPlayerProps> = ({ channel, epgData, onClose, onEx
       hls.attachMedia(videoElement);
       
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        // ⚡ Resume rapido: salta direttamente al live edge
+        if (hlsRef.current && typeof hlsRef.current.liveSyncPosition === 'number') {
+          const livePos = hlsRef.current.liveSyncPosition;
+          if (livePos > 0) {
+            videoElement.currentTime = livePos;
+            console.log('⚡ MiniPlayer quick resume al live edge:', livePos);
+          }
+        }
+        
         videoElement.play().catch(() => {});
       });
       
@@ -144,9 +163,11 @@ const MiniPlayer: React.FC<MiniPlayerProps> = ({ channel, epgData, onClose, onEx
     if (videoRef.current) {
       const newMuted = !videoRef.current.muted;
       videoRef.current.muted = newMuted;
-      setIsMuted(newMuted);
       
-      // ⚡ Se l'utente unmuta, salva la preferenza
+      // ⚡ Aggiorna lo store
+      setPlayerState({ isMuted: newMuted });
+      
+      // Se l'utente unmuta, salva la preferenza
       if (!newMuted && !settings.hasUserUnmuted) {
         updateSettings({ hasUserUnmuted: true });
       }

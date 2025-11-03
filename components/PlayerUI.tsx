@@ -355,14 +355,14 @@ const PlayerUI: React.FC<PlayerUIProps> = ({
           <div className="flex-grow flex overflow-hidden">
             {view === 'LIST' ? (
               <div className="flex-grow flex overflow-hidden relative">
-                {!showMiniPlayer && (
+                {/* ⚡ OTTIMIZZATO: Solo UNO dei due player è montato alla volta */}
+                {!showMiniPlayer ? (
                   <Player 
                     channel={currentChannel} 
                     epgData={epgData}
                     onMinimize={() => setShowMiniPlayer(true)}
                   />
-                )}
-                {showMiniPlayer && (
+                ) : (
                   <div className="flex-grow bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
                     <div className="text-center text-gray-500 dark:text-gray-400">
                       <p className="text-lg">Riproduzione in Mini Player</p>
@@ -451,7 +451,7 @@ const PlayerUI: React.FC<PlayerUIProps> = ({
         </>
       )}
 
-      {/* Mini Player - shown when a channel is selected in GRID view, or optionally in LIST view */}
+      {/* Mini Player - ⚡ Montato solo quando showMiniPlayer è true (evita doppia connessione) */}
       {showMiniPlayer && currentChannel && (
         <MiniPlayer
           channel={currentChannel}

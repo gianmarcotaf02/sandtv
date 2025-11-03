@@ -29,11 +29,13 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
   const [isPlaying, setIsPlaying] = useState(true);
   
   // Picture-in-Picture support + auto-PiP when enabled in settings
-  const { settings, setPlayerState, updateSettings } = useStore();
+  const { settings, setPlayerState, updateSettings, player } = useStore();
   
-  // ⚡ NUOVA LOGICA MUTE: Solo al primo avvio, poi sempre unmuted
-  const [isMuted, setIsMuted] = useState(!settings.hasUserUnmuted); // Muted solo se l'utente non ha mai unmutato
-  const [volume, setVolume] = useState(1);
+  // ⚡ USA LO STATO GLOBALE invece dello stato locale per volume/mute
+  // Questo evita che il player si resetti quando viene rimontato
+  const isMuted = player.isMuted;
+  const volume = player.volume;
+  
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -54,6 +56,24 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
   const hwAccelMenuRef = useRef<HTMLDivElement | null>(null);
   const hwAccelButtonRef = useRef<HTMLButtonElement | null>(null);
 
+  // ⚡ Inizializza il video element con lo stato dallo store al mount
+  useEffect(() => {
+    const videoElement = videoRef.current;
+    if (!videoElement) return;
+    
+    // ⚡ LOGICA INTELLIGENTE: 
+    // - Se l'utente NON ha mai unmutato → parte muted (prima volta)
+    // - Se l'utente HA unmutato → usa lo stato salvato nello store
+    const shouldBeMuted = settings.hasUserUnmuted ? player.isMuted : true;
+    videoElement.muted = shouldBeMuted;
+    videoElement.volume = player.volume;
+    
+    // Aggiorna lo store se necessario (solo la prima volta)
+    if (!settings.hasUserUnmuted && !player.isMuted) {
+      setPlayerState({ isMuted: true });
+    }
+  }, []); // Solo al mount
+
   useEffect(() => {
     const videoElement = videoRef.current;
     if (!videoElement) return;
@@ -63,8 +83,11 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
       setIsPlaying(!videoElement.paused);
     };
     const onVolumeChange = () => {
-        setIsMuted(videoElement.muted);
-        setVolume(videoElement.volume);
+        // ⚡ Aggiorna lo store invece dello stato locale
+        setPlayerState({ 
+          isMuted: videoElement.muted,
+          volume: videoElement.volume 
+        });
     };
     const onTimeUpdate = () => {
         setCurrentTime(videoElement.currentTime);
@@ -293,6 +316,16 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
       
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         console.log('HLS manifest parsed, starting playback');
+        
+        // ⚡ Resume rapido: salta direttamente al live edge
+        if (hlsRef.current && typeof hlsRef.current.liveSyncPosition === 'number') {
+          const livePos = hlsRef.current.liveSyncPosition;
+          if (livePos > 0) {
+            videoElement.currentTime = livePos;
+            console.log('⚡ Quick resume al live edge:', livePos);
+          }
+        }
+        
         videoElement.play().catch((error: any) => {
           console.log('Autoplay prevented, user interaction needed:', error);
           setIsPlaying(false);
@@ -468,7 +501,13 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
         videoRef.current.volume = newVolume;
         videoRef.current.muted = newVolume === 0;
         
-        // ⚡ Se l'utente aumenta il volume, salva che ha unmutato
+        // ⚡ Aggiorna lo store
+        setPlayerState({ 
+          volume: newVolume,
+          isMuted: newVolume === 0
+        });
+        
+        // Se l'utente aumenta il volume, salva che ha unmutato
         if (newVolume > 0 && !settings.hasUserUnmuted) {
           updateSettings({ hasUserUnmuted: true });
         }
@@ -480,7 +519,10 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
       const newMuted = !videoRef.current.muted;
       videoRef.current.muted = newMuted;
       
-      // ⚡ Se l'utente unmuta, salva la preferenza
+      // ⚡ Aggiorna lo store
+      setPlayerState({ isMuted: newMuted });
+      
+      // Se l'utente unmuta, salva la preferenza
       if (!newMuted && !settings.hasUserUnmuted) {
         updateSettings({ hasUserUnmuted: true });
       }
