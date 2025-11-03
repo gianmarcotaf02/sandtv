@@ -41,6 +41,8 @@ interface Settings {
   pipAuto?: boolean;
   // Hardware acceleration: 'auto' (default), 'disabled', 'enabled'
   hardwareAcceleration?: 'auto' | 'disabled' | 'enabled';
+  // Track if user has ever unmuted (for autoplay compliance)
+  hasUserUnmuted?: boolean;
 }
 
 interface WatchHistory {

@@ -27,7 +27,12 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
   const overlayTimeoutRef = useRef<number | null>(null);
 
   const [isPlaying, setIsPlaying] = useState(true);
-  const [isMuted, setIsMuted] = useState(true); // Start muted for autoplay
+  
+  // Picture-in-Picture support + auto-PiP when enabled in settings
+  const { settings, setPlayerState, updateSettings } = useStore();
+  
+  // ⚡ NUOVA LOGICA MUTE: Solo al primo avvio, poi sempre unmuted
+  const [isMuted, setIsMuted] = useState(!settings.hasUserUnmuted); // Muted solo se l'utente non ha mai unmutato
   const [volume, setVolume] = useState(1);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -125,9 +130,6 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
       videoElement.removeEventListener('loadedmetadata', onTimeUpdate);
     };
   }, [channel]);
-
-  // Picture-in-Picture support + auto-PiP when enabled in settings
-  const { settings, setPlayerState, updateSettings } = useStore();
 
   // Auto Picture-in-Picture - gestione unificata e ottimizzata
   useEffect(() => {
@@ -465,11 +467,24 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
     if(videoRef.current) {
         videoRef.current.volume = newVolume;
         videoRef.current.muted = newVolume === 0;
+        
+        // ⚡ Se l'utente aumenta il volume, salva che ha unmutato
+        if (newVolume > 0 && !settings.hasUserUnmuted) {
+          updateSettings({ hasUserUnmuted: true });
+        }
     }
   };
 
   const toggleMute = () => {
-    if(videoRef.current) videoRef.current.muted = !videoRef.current.muted;
+    if(videoRef.current) {
+      const newMuted = !videoRef.current.muted;
+      videoRef.current.muted = newMuted;
+      
+      // ⚡ Se l'utente unmuta, salva la preferenza
+      if (!newMuted && !settings.hasUserUnmuted) {
+        updateSettings({ hasUserUnmuted: true });
+      }
+    }
   };
   
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {

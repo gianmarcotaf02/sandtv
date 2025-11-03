@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Channel, EpgData } from '../types';
 import { PlayIcon, PauseIcon, VolumeUpIcon, VolumeOffIcon, XIcon, ExpandIcon } from './icons';
+import { useStore } from '../store/useStore';
 
 // Dichiarazione per TypeScript
 declare const Hls: any;
@@ -16,7 +17,10 @@ const MiniPlayer: React.FC<MiniPlayerProps> = ({ channel, epgData, onClose, onEx
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<any>(null);
   const [isPlaying, setIsPlaying] = useState(true);
-  const [isMuted, setIsMuted] = useState(false);
+  
+  // ⚡ Usa la stessa logica del Player principale per il mute
+  const { settings, updateSettings } = useStore();
+  const [isMuted, setIsMuted] = useState(!settings.hasUserUnmuted);
 
   // Setup video and HLS
   useEffect(() => {
@@ -138,8 +142,14 @@ const MiniPlayer: React.FC<MiniPlayerProps> = ({ channel, epgData, onClose, onEx
 
   const toggleMute = () => {
     if (videoRef.current) {
-      videoRef.current.muted = !videoRef.current.muted;
-      setIsMuted(!isMuted);
+      const newMuted = !videoRef.current.muted;
+      videoRef.current.muted = newMuted;
+      setIsMuted(newMuted);
+      
+      // ⚡ Se l'utente unmuta, salva la preferenza
+      if (!newMuted && !settings.hasUserUnmuted) {
+        updateSettings({ hasUserUnmuted: true });
+      }
     }
   };
 

@@ -253,12 +253,17 @@ const PlayerUI: React.FC<PlayerUIProps> = ({
     }
   }, [channels, currentChannel]);
   
-  // Close mini player when switching away from GRID view
+  // ⚡ NUOVA LOGICA: Attiva mini player automaticamente quando cambi vista da LIST
   useEffect(() => {
-    if (view !== 'GRID') {
+    // Se c'è un canale attivo e passi da LIST a GRID o EPG, attiva il mini player
+    if (currentChannel && view !== 'LIST') {
+      setShowMiniPlayer(true);
+    }
+    // Se torni a LIST, nascondi il mini player
+    else if (view === 'LIST') {
       setShowMiniPlayer(false);
     }
-  }, [view]);
+  }, [view, currentChannel]);
   
   const handleSelectChannel = (channel: Channel) => {
       const now = Date.now();
