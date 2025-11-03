@@ -54,9 +54,35 @@ const PlayerAdvanced: React.FC<PlayerProps> = ({ channel, epgData }) => {
     const setupHls = () => {
       if (Hls.isSupported()) {
         const hls = new Hls({
+          // ⚡ Configurazione BASSA LATENZA
           enableWorker: true,
           lowLatencyMode: true,
-          backBufferLength: 90,
+          backBufferLength: 10,
+          maxBufferLength: 15,
+          maxMaxBufferLength: 30,
+          maxBufferSize: 60 * 1000 * 1000,
+          maxBufferHole: 0.3,
+          liveSyncDurationCount: 2,
+          liveMaxLatencyDurationCount: 6,
+          liveDurationInfinity: true,
+          maxLiveSyncPlaybackRate: 1.15,
+          highBufferWatchdogPeriod: 1,
+          nudgeOffset: 0.1,
+          nudgeMaxRetry: 3,
+          manifestLoadingTimeOut: 10000,
+          manifestLoadingMaxRetry: 4,
+          manifestLoadingRetryDelay: 500,
+          levelLoadingTimeOut: 10000,
+          levelLoadingMaxRetry: 6,
+          fragLoadingTimeOut: 20000,
+          fragLoadingMaxRetry: 6,
+          startLevel: -1,
+          abrEwmaDefaultEstimate: 1000000,
+          abrBandWidthFactor: 0.75,
+          abrBandWidthUpFactor: 0.7,
+          progressive: true,
+          startFragPrefetch: true,
+          testBandwidth: true,
         });
         hlsRef.current = hls;
 
@@ -78,7 +104,11 @@ const PlayerAdvanced: React.FC<PlayerProps> = ({ channel, epgData }) => {
             switch (data.type) {
               case Hls.ErrorTypes.NETWORK_ERROR:
                 console.error('Network error, trying to recover...');
-                hls.startLoad();
+                setTimeout(() => {
+                  if (hlsRef.current) {
+                    hls.startLoad();
+                  }
+                }, 2000);
                 break;
               case Hls.ErrorTypes.MEDIA_ERROR:
                 console.error('Media error, trying to recover...');
@@ -86,7 +116,12 @@ const PlayerAdvanced: React.FC<PlayerProps> = ({ channel, epgData }) => {
                 break;
               default:
                 console.error('Fatal error, cannot recover');
-                hls.destroy();
+                setTimeout(() => {
+                  if (hlsRef.current) {
+                    hls.destroy();
+                    hlsRef.current = null;
+                  }
+                }, 1000);
                 break;
             }
           }

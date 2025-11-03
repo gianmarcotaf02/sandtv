@@ -49,16 +49,35 @@ const MiniPlayer: React.FC<MiniPlayerProps> = ({ channel, epgData, onClose, onEx
 
     if (typeof Hls !== 'undefined' && Hls.isSupported() && channel.url.includes('.m3u8')) {
       const hls = new Hls({
-        // Configurazione per bassa latenza
+        // ⚡ Configurazione BASSA LATENZA
         enableWorker: true,
         lowLatencyMode: true,
         backBufferLength: 10,
-        maxBufferLength: 20,
+        maxBufferLength: 15,
         maxMaxBufferLength: 30,
+        maxBufferSize: 60 * 1000 * 1000,
+        maxBufferHole: 0.3,
         liveSyncDurationCount: 2,
-        liveMaxLatencyDurationCount: 5,
+        liveMaxLatencyDurationCount: 6,
         liveDurationInfinity: true,
+        maxLiveSyncPlaybackRate: 1.15,
         highBufferWatchdogPeriod: 1,
+        nudgeOffset: 0.1,
+        nudgeMaxRetry: 3,
+        manifestLoadingTimeOut: 10000,
+        manifestLoadingMaxRetry: 4,
+        manifestLoadingRetryDelay: 500,
+        levelLoadingTimeOut: 10000,
+        levelLoadingMaxRetry: 6,
+        fragLoadingTimeOut: 20000,
+        fragLoadingMaxRetry: 6,
+        startLevel: -1,
+        abrEwmaDefaultEstimate: 1000000,
+        abrBandWidthFactor: 0.75,
+        abrBandWidthUpFactor: 0.7,
+        progressive: true,
+        startFragPrefetch: true,
+        testBandwidth: true,
       });
       
       hlsRef.current = hls;
@@ -67,6 +86,28 @@ const MiniPlayer: React.FC<MiniPlayerProps> = ({ channel, epgData, onClose, onEx
       
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         videoElement.play().catch(() => {});
+      });
+      
+      hls.on(Hls.Events.ERROR, (event: any, data: any) => {
+        if (data.fatal) {
+          switch (data.type) {
+            case Hls.ErrorTypes.NETWORK_ERROR:
+              console.log('MiniPlayer: Network error, recovering...');
+              setTimeout(() => {
+                if (hlsRef.current) {
+                  hls.startLoad();
+                }
+              }, 2000);
+              break;
+            case Hls.ErrorTypes.MEDIA_ERROR:
+              console.log('MiniPlayer: Media error, recovering...');
+              hls.recoverMediaError();
+              break;
+            default:
+              console.error('MiniPlayer: Fatal error');
+              break;
+          }
+        }
       });
     } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
       videoElement.src = channel.url;

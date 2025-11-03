@@ -44,6 +44,8 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
   const [showHwAccelMenu, setShowHwAccelMenu] = useState(false);
   // Threshold used to determine if playback is behind live
   const LIVE_BEHIND_THRESHOLD = 5; // seconds - appears only if delay > 5s
+  // ⚡ Latenza live in tempo reale
+  const [liveLatency, setLiveLatency] = useState<number>(0); // in secondi
   const aspectMenuRef = useRef<HTMLDivElement | null>(null);
   const aspectButtonRef = useRef<HTMLButtonElement | null>(null);
   const hwAccelMenuRef = useRef<HTMLDivElement | null>(null);
@@ -64,6 +66,21 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
     const onTimeUpdate = () => {
         setCurrentTime(videoElement.currentTime);
         setDuration(videoElement.duration);
+        
+        // ⚡ Calcola latenza live in tempo reale
+        try {
+          if (videoElement.seekable && videoElement.seekable.length > 0) {
+            const last = videoElement.seekable.length - 1;
+            const end = videoElement.seekable.end(last);
+            const latency = end - videoElement.currentTime;
+            setLiveLatency(Math.max(0, latency));
+          } else if (hlsRef.current && typeof hlsRef.current.liveSyncPosition === 'number') {
+            const latency = hlsRef.current.liveSyncPosition - videoElement.currentTime;
+            setLiveLatency(Math.max(0, latency));
+          }
+        } catch (err) {
+          // ignore
+        }
         
         // Non controllare se abbiamo appena cliccato "Torna al live" (blocca per 10 secondi)
         const timeSinceGoToLive = Date.now() - lastGoToLiveRef.current;
@@ -259,45 +276,56 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
     if (typeof Hls !== 'undefined' && Hls.isSupported() && channel.url.includes('.m3u8')) {
       console.log('Using HLS.js');
       const hls = new Hls({
-        // Configurazione bilanciata per prestazioni e stabilità
-        enableWorker: true, // Usa Web Worker per parsing
-        lowLatencyMode: false, // Disabilitato per maggiore stabilità
+        // ⚡ CONFIGURAZIONE BASSA LATENZA - Bilanciata per velocità e stabilità
+        enableWorker: true, // Web Worker per parsing parallelo
+        lowLatencyMode: true, // ⚡ ABILITATO per ridurre latenza
         
-        // Buffer bilanciato per evitare microblocchi
-        backBufferLength: 10, // Buffer precedente 10 secondi
-        maxBufferLength: 30, // Buffer massimo 30 secondi (aumentato per stabilità)
-        maxMaxBufferLength: 60, // Buffer massimo assoluto 60 secondi
-        maxBufferSize: 120 * 1000 * 1000, // 120 MB max buffer size
-        maxBufferHole: 0.5, // Tolleranza gap nel buffer
+        // Buffer ottimizzato per bassa latenza ma con safety margin
+        backBufferLength: 10, // Buffer precedente minimo
+        maxBufferLength: 15, // ⚡ Buffer ridotto a 15s (era 45s) per bassa latenza
+        maxMaxBufferLength: 30, // ⚡ Max 30s invece di 90s
+        maxBufferSize: 60 * 1000 * 1000, // 60 MB sufficiente per streaming live
+        maxBufferHole: 0.3, // Tolleranza ridotta per reagire velocemente
         
-        // Sincronizzazione live più tollerante
-        liveSyncDurationCount: 3, // Mantieni 3 segmenti dal live edge
-        liveMaxLatencyDurationCount: 10, // Max 10 segmenti (più tollerante)
+        // ⚡ Sincronizzazione AGGRESSIVA al live edge
+        liveSyncDurationCount: 2, // ⚡ SOLO 2 segmenti dal live (molto vicino!)
+        liveMaxLatencyDurationCount: 6, // ⚡ Max 6 segmenti prima di risync
         liveDurationInfinity: true,
         
-        // Monitoraggio meno aggressivo
-        highBufferWatchdogPeriod: 2, // Check buffer ogni 2 secondi
-        nudgeOffset: 0.1, // Piccoli aggiustamenti per sync
+        // ⚡ Catchup veloce se vai indietro
+        maxLiveSyncPlaybackRate: 1.15, // Accelera fino a 1.15x per recuperare
+        liveSyncOnStallIncrease: 1.0, // Aumenta buffer di 1 segmento se stalla
+        
+        // Monitoraggio attivo per mantenere low latency
+        highBufferWatchdogPeriod: 1, // ⚡ Check frequente ogni 1 secondo
+        nudgeOffset: 0.1, // Aggiustamenti frequenti
         nudgeMaxRetry: 3,
         
-        // Network con timeout più generosi
+        // Network ottimizzato: timeout ridotti ma con retry adeguati
         manifestLoadingTimeOut: 10000,
         manifestLoadingMaxRetry: 4,
-        manifestLoadingRetryDelay: 1000, // Attesa più lunga tra retry
+        manifestLoadingRetryDelay: 500, // ⚡ Retry veloce (era 1500)
         levelLoadingTimeOut: 10000,
         levelLoadingMaxRetry: 6,
         fragLoadingTimeOut: 20000,
-        fragLoadingMaxRetry: 8,
+        fragLoadingMaxRetry: 6, // Meno retry ma più veloci
         
-        // Adaptive Bitrate più conservativo
-        startLevel: -1, // Auto-detect best quality
-        abrEwmaDefaultEstimate: 500000, // 500 kbps stima iniziale
-        abrBandWidthFactor: 0.8, // Più conservativo per evitare rebuffering
-        abrBandWidthUpFactor: 0.7, 
+        // Adaptive Bitrate bilanciato per qualità/latenza
+        startLevel: -1, // Auto-detect migliore qualità disponibile
+        abrEwmaDefaultEstimate: 1000000, // ⚡ Stima iniziale più alta (1 Mbps)
+        abrBandWidthFactor: 0.75, // Bilanciato
+        abrBandWidthUpFactor: 0.7,
         abrMaxWithRealBitrate: false,
         
-        // Abilita fast switching
+        // Ottimizzazioni extra per performance
         enableSoftwareAES: true,
+        progressive: true,
+        startFragPrefetch: true, // Pre-carica il prossimo frammento
+        testBandwidth: true, // Test bandwidth iniziale
+        
+        // ⚡ CHIAVE: Forza a stare vicino al live edge
+        backtrackAttempts: 2, // Tentativi limitati se un frammento fallisce
+        maxFragLookUpTolerance: 0.25, // Tolleranza ridotta nella ricerca frammenti
       });
       
       hlsRef.current = hls;
@@ -312,61 +340,62 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
         });
       });
       
-      // Log buffering events per debug
-      hls.on(Hls.Events.BUFFER_APPENDING, () => {
-        console.log('Buffer appending...');
-      });
-      
-      hls.on(Hls.Events.BUFFER_APPENDED, () => {
-        console.log('Buffer appended');
-      });
-      
-      hls.on(Hls.Events.FRAG_BUFFERED, (event: any, data: any) => {
-        console.log('Fragment buffered:', data.stats);
-      });
-      
       hls.on(Hls.Events.ERROR, (event: any, data: any) => {
-        console.error('HLS error:', data);
+        console.error('HLS error:', data.type, data.details);
         if (data.fatal) {
           switch (data.type) {
             case Hls.ErrorTypes.NETWORK_ERROR:
               console.log('Network error, attempting recovery...');
-              // Attendi 1 secondo prima di ripartire per evitare loop
+              // Attendi 2 secondi prima di ripartire per evitare loop aggressivi
               setTimeout(() => {
                 if (hlsRef.current) {
                   hls.startLoad();
                 }
-              }, 1000);
+              }, 2000);
               break;
             case Hls.ErrorTypes.MEDIA_ERROR:
               console.log('Media error, attempting recovery...');
               hls.recoverMediaError();
-              // Se fallisce di nuovo, prova a ricaricare dopo 2 secondi
-              setTimeout(() => {
-                if (hlsRef.current && videoElement.error) {
-                  console.log('Second recovery attempt...');
-                  hls.recoverMediaError();
-                }
-              }, 2000);
               break;
             default:
-              console.error('Fatal unrecoverable error');
-              // Prova comunque a ricaricare lo stream dopo 3 secondi
+              console.error('Fatal unrecoverable error, will retry in 5 seconds');
+              // Solo in caso di errore fatale non recuperabile, attendi di più
               setTimeout(() => {
-                if (hlsRef.current) {
-                  console.log('Attempting full reload...');
+                if (hlsRef.current && channel) {
+                  console.log('Attempting full stream reload...');
                   hls.destroy();
+                  // Ricrea HLS con le stesse configurazioni ottimizzate
                   const newHls = new Hls({
                     enableWorker: true,
-                    lowLatencyMode: false,
+                    lowLatencyMode: true,
                     backBufferLength: 10,
-                    maxBufferLength: 30,
+                    maxBufferLength: 15,
+                    maxMaxBufferLength: 30,
+                    maxBufferSize: 60 * 1000 * 1000,
+                    maxBufferHole: 0.3,
+                    liveSyncDurationCount: 2,
+                    liveMaxLatencyDurationCount: 6,
+                    liveDurationInfinity: true,
+                    maxLiveSyncPlaybackRate: 1.15,
+                    highBufferWatchdogPeriod: 1,
+                    nudgeOffset: 0.1,
+                    manifestLoadingTimeOut: 10000,
+                    manifestLoadingMaxRetry: 4,
+                    manifestLoadingRetryDelay: 500,
+                    levelLoadingTimeOut: 10000,
+                    levelLoadingMaxRetry: 6,
+                    fragLoadingTimeOut: 20000,
+                    fragLoadingMaxRetry: 6,
+                    startLevel: -1,
+                    abrBandWidthFactor: 0.75,
+                    progressive: true,
+                    startFragPrefetch: true,
                   });
                   hlsRef.current = newHls;
                   newHls.loadSource(channel.url);
                   newHls.attachMedia(videoElement);
                 }
-              }, 3000);
+              }, 5000);
               break;
           }
         }
@@ -549,6 +578,7 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
 
   const goToLive = () => {
     const video = videoRef.current;
+    const hls = hlsRef.current;
     if (!video) return;
     
     // Registra timestamp del click per bloccare controlli successivi
@@ -563,28 +593,61 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
     setIsBehindLive(false);
     
     try {
-      // If seekable ranges exist, jump to the end (live) minus a small buffer
+      // ⚡ METODO OTTIMIZZATO PER BASSA LATENZA
+      
+      // Metodo 1: Usa HLS.js liveSyncPosition (MIGLIORE per bassa latenza)
+      if (hls && typeof hls.liveSyncPosition === 'number' && !isNaN(hls.liveSyncPosition)) {
+        // ⚡ Buffer MINIMO (0.5-1s) per stare il più vicino possibile al live
+        const targetPosition = hls.liveSyncPosition - 0.8;
+        console.log('⚡ Going to live edge:', targetPosition, '(liveSyncPosition:', hls.liveSyncPosition, ')');
+        video.currentTime = Math.max(0, targetPosition);
+        
+        // Forza reload aggressivo per minimizzare latenza
+        if (typeof hls.startLoad === 'function') {
+          hls.stopLoad();
+          setTimeout(() => {
+            hls.startLoad(targetPosition);
+            video.play().catch(() => {});
+          }, 50);
+        } else {
+          video.play().catch(() => {});
+        }
+        return;
+      }
+      
+      // Metodo 2: Usa seekable ranges (con buffer minimo)
       if (video.seekable && video.seekable.length > 0) {
         const last = video.seekable.length - 1;
         const end = video.seekable.end(last);
-        // Move very close to live edge (small safety buffer)
-        video.currentTime = Math.max(0, end - 0.5);
-        // Ensure playback resumes
-        video.play().catch(() => {});
+        // ⚡ Buffer ridotto a 1 secondo per bassa latenza
+        const targetPosition = Math.max(0, end - 1);
+        console.log('⚡ Going to live using seekable:', targetPosition, '(end:', end, ')');
+        video.currentTime = targetPosition;
+        
+        // Reload veloce
+        if (hls && typeof hls.startLoad === 'function') {
+          hls.stopLoad();
+          setTimeout(() => {
+            hls.startLoad(targetPosition);
+            video.play().catch(() => {});
+          }, 50);
+        } else {
+          video.play().catch(() => {});
+        }
         return;
       }
-      // Fallback: if hls exposes liveSyncPosition
-      if ((hlsRef as any).current && (hlsRef as any).current.liveSyncPosition !== undefined) {
-        const pos = (hlsRef as any).current.liveSyncPosition;
-        if (pos !== undefined && !isNaN(pos)) {
-          // place at the reported live sync position
-          video.currentTime = pos;
+      
+      // Metodo 3: Ricarica completa dello stream (ultimo resort)
+      console.log('⚡ Full reload to live edge');
+      if (hls) {
+        hls.stopLoad();
+        setTimeout(() => {
+          hls.startLoad();
           video.play().catch(() => {});
-          return;
-        }
+        }, 100);
+      } else {
+        video.play().catch(() => {});
       }
-      // Final fallback: just resume playback
-      video.play().catch(() => {});
     } catch (err) {
       console.warn('goToLive error', err);
       video.play().catch(() => {});
@@ -822,6 +885,24 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
                     </div>
 
                     <div className="flex items-center gap-4">
+                      {/* ⚡ Indicatore latenza live - sempre visibile */}
+                      <div className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 ${
+                        liveLatency < 2 ? 'bg-green-600/90 text-white' : 
+                        liveLatency < 5 ? 'bg-yellow-600/90 text-white' : 
+                        'bg-red-600/90 text-white'
+                      }`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${
+                          liveLatency < 2 ? 'bg-green-300 animate-pulse' : 
+                          liveLatency < 5 ? 'bg-yellow-300' : 
+                          'bg-red-300'
+                        }`} />
+                        <span>
+                          {liveLatency < 1 ? 'LIVE' : 
+                           liveLatency < 10 ? `-${liveLatency.toFixed(1)}s` : 
+                           `-${Math.round(liveLatency)}s`}
+                        </span>
+                      </div>
+                      
                       {isBehindLive && (
                         <button onClick={goToLive} className="w-9 h-9 flex items-center justify-center bg-red-600 hover:bg-red-700 rounded-full border border-red-500" title="Torna al live" aria-label="Torna al live">
                           {/* small play icon to indicate live */}
