@@ -44,8 +44,6 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
   const [showHwAccelMenu, setShowHwAccelMenu] = useState(false);
   // Threshold used to determine if playback is behind live
   const LIVE_BEHIND_THRESHOLD = 5; // seconds - appears only if delay > 5s
-  // ⚡ Latenza live in tempo reale
-  const [liveLatency, setLiveLatency] = useState<number>(0); // in secondi
   const aspectMenuRef = useRef<HTMLDivElement | null>(null);
   const aspectButtonRef = useRef<HTMLButtonElement | null>(null);
   const hwAccelMenuRef = useRef<HTMLDivElement | null>(null);
@@ -66,21 +64,6 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
     const onTimeUpdate = () => {
         setCurrentTime(videoElement.currentTime);
         setDuration(videoElement.duration);
-        
-        // ⚡ Calcola latenza live in tempo reale
-        try {
-          if (videoElement.seekable && videoElement.seekable.length > 0) {
-            const last = videoElement.seekable.length - 1;
-            const end = videoElement.seekable.end(last);
-            const latency = end - videoElement.currentTime;
-            setLiveLatency(Math.max(0, latency));
-          } else if (hlsRef.current && typeof hlsRef.current.liveSyncPosition === 'number') {
-            const latency = hlsRef.current.liveSyncPosition - videoElement.currentTime;
-            setLiveLatency(Math.max(0, latency));
-          }
-        } catch (err) {
-          // ignore
-        }
         
         // Non controllare se abbiamo appena cliccato "Torna al live" (blocca per 10 secondi)
         const timeSinceGoToLive = Date.now() - lastGoToLiveRef.current;
@@ -885,24 +868,6 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
                     </div>
 
                     <div className="flex items-center gap-4">
-                      {/* ⚡ Indicatore latenza live - sempre visibile */}
-                      <div className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 ${
-                        liveLatency < 2 ? 'bg-green-600/90 text-white' : 
-                        liveLatency < 5 ? 'bg-yellow-600/90 text-white' : 
-                        'bg-red-600/90 text-white'
-                      }`}>
-                        <div className={`w-1.5 h-1.5 rounded-full ${
-                          liveLatency < 2 ? 'bg-green-300 animate-pulse' : 
-                          liveLatency < 5 ? 'bg-yellow-300' : 
-                          'bg-red-300'
-                        }`} />
-                        <span>
-                          {liveLatency < 1 ? 'LIVE' : 
-                           liveLatency < 10 ? `-${liveLatency.toFixed(1)}s` : 
-                           `-${Math.round(liveLatency)}s`}
-                        </span>
-                      </div>
-                      
                       {isBehindLive && (
                         <button onClick={goToLive} className="w-9 h-9 flex items-center justify-center bg-red-600 hover:bg-red-700 rounded-full border border-red-500" title="Torna al live" aria-label="Torna al live">
                           {/* small play icon to indicate live */}
