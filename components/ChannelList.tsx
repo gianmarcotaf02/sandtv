@@ -2,6 +2,7 @@ import React, { useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Star } from 'lucide-react';
 import { Channel, EpgData } from '../types';
+import { getContentTypeLabel, getContentTypeColor } from '../lib/contentDetector';
 
 interface ChannelListProps {
   channels: Channel[];
@@ -99,7 +100,14 @@ const ChannelItem: React.FC<{
             <div className="flex items-center">
                 <img src={channel.logo || 'https://via.placeholder.com/50'} alt={channel.name} className="w-12 h-12 object-contain mr-3 bg-gray-200 dark:bg-gray-900 rounded-2xl flex-shrink-0" />
                 <div className="flex-grow min-w-0">
-                    <div className="text-sm text-gray-900 dark:text-gray-200 truncate font-medium">{channel.name}</div>
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-900 dark:text-gray-200 truncate font-medium">{channel.name}</span>
+                        {channel.contentType && (
+                            <span className={`text-xs px-2 py-0.5 rounded-full text-white whitespace-nowrap flex-shrink-0 ${getContentTypeColor(channel.contentType as any)}`}>
+                                {getContentTypeLabel(channel.contentType as any)}
+                            </span>
+                        )}
+                    </div>
                     {currentProgram ? (
                         <div className="text-xs text-gray-600 dark:text-gray-400 space-y-0.5">
                             <div className="truncate font-medium">{currentProgram.title}</div>

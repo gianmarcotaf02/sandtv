@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useStore } from '../store/useStore';
 import { Channel, EpgData } from '../types';
 import { PlayIcon, PauseIcon, VolumeUpIcon, VolumeOffIcon, FullscreenEnterIcon, FullscreenExitIcon, MinimizeIcon, AspectRatioIcon, ScreenMirroringIcon } from './icons';
+import { getLiveEdgeManager, LiveEdgeDiagnostics } from '../lib/liveEdgeManager';
 
 // Dichiarazione per TypeScript
 declare const Hls: any;
@@ -41,16 +42,20 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [objectFit, setObjectFit] = useState<'contain' | 'cover' | 'fill'>('contain');
   const [isBehindLive, setIsBehindLive] = useState(false);
-  const behindLiveCheckRef = useRef<number>(0); // Per stabilizzare il controllo
-  const liveCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Timeout per debounce
-  const lastGoToLiveRef = useRef<number>(0); // Timestamp ultimo click "Torna al live"
+  const behindLiveCheckRef = useRef<number>(0);
+  const liveCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastGoToLiveRef = useRef<number>(0);
+  const liveEdgeManagerRef = useRef(getLiveEdgeManager({
+    enableDiagnostics: true, // Abilita log per debugging
+    delayThreshold: 2.5, // Mostra bottone se ritardo > 2.5 secondi
+    delayThresholdLow: 1.5, // Nascondi bottone se ritardo < 1.5 secondi (isteresi)
+  }));
+  const lastDiagnosticsRef = useRef<LiveEdgeDiagnostics | null>(null);
   // Aspect ratio state: '16:9', '4:3' or 'auto' (no enforced aspect)
   const [aspect, setAspect] = useState<'16:9' | '4:3' | 'auto'>('16:9');
   const [showAspectMenu, setShowAspectMenu] = useState(false);
   // Hardware acceleration menu
   const [showHwAccelMenu, setShowHwAccelMenu] = useState(false);
-  // Threshold used to determine if playback is behind live
-  const LIVE_BEHIND_THRESHOLD = 5; // seconds - appears only if delay > 5s
   const aspectMenuRef = useRef<HTMLDivElement | null>(null);
   const aspectButtonRef = useRef<HTMLButtonElement | null>(null);
   const hwAccelMenuRef = useRef<HTMLDivElement | null>(null);
@@ -93,10 +98,10 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
         setCurrentTime(videoElement.currentTime);
         setDuration(videoElement.duration);
         
-        // Non controllare se abbiamo appena cliccato "Torna al live" (blocca per 10 secondi)
+        // Non controllare se abbiamo appena cliccato "Torna al live" (blocca per 3 secondi)
         const timeSinceGoToLive = Date.now() - lastGoToLiveRef.current;
-        if (timeSinceGoToLive < 10000) {
-          // Dopo il click, ignora controlli per 10 secondi per evitare riapparizione durante buffering
+        if (timeSinceGoToLive < 3000) {
+          // Dopo il click, ignora controlli per 3 secondi per evitare riapparizione durante buffering
           return;
         }
         
@@ -107,25 +112,28 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
         
         liveCheckTimeoutRef.current = setTimeout(() => {
           try {
-            // Determine if we're behind live by checking seekable end
-            if (videoElement.seekable && videoElement.seekable.length > 0) {
-              const last = videoElement.seekable.length - 1;
-              const end = videoElement.seekable.end(last);
-              const delay = end - videoElement.currentTime;
-              // Mostra solo se > 5s, nascondi se < 4s (con isteresi)
-              if (delay > LIVE_BEHIND_THRESHOLD) {
-                setIsBehindLive(true);
-              } else if (delay < 4) {
-                setIsBehindLive(false);
-              }
-              // Tra 4-5 secondi mantiene lo stato corrente
-            } else {
-              setIsBehindLive(false);
+            const liveEdgeManager = liveEdgeManagerRef.current;
+            const diagnostics = liveEdgeManager.analyzeLiveState(
+              videoElement,
+              hlsRef.current
+            );
+            
+            if (diagnostics) {
+              lastDiagnosticsRef.current = diagnostics;
+              
+              // Usa il manager per determinare se mostrare il bottone
+              const shouldShow = liveEdgeManager.shouldShowGoToLiveButton(
+                diagnostics,
+                isBehindLive
+              );
+              
+              setIsBehindLive(shouldShow);
             }
           } catch (err) {
+            console.error('❌ Errore nell\'analisi del live edge:', err);
             setIsBehindLive(false);
           }
-        }, 300); // Attendi 300ms di stabilità prima di cambiare stato
+        }, 500); // Debounce 500ms
     };
 
     videoElement.addEventListener('play', onPlayStateChange);
@@ -590,9 +598,8 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
     });
   };
 
-  const goToLive = () => {
+  const goToLive = async () => {
     const video = videoRef.current;
-    const hls = hlsRef.current;
     if (!video) return;
     
     // Registra timestamp del click per bloccare controlli successivi
@@ -607,63 +614,24 @@ const Player: React.FC<{ channel: Channel | null, epgData: EpgData, onMinimize?:
     setIsBehindLive(false);
     
     try {
-      // ⚡ METODO OTTIMIZZATO PER BASSA LATENZA
+      const liveEdgeManager = liveEdgeManagerRef.current;
+      const diagnostics = lastDiagnosticsRef.current;
       
-      // Metodo 1: Usa HLS.js liveSyncPosition (MIGLIORE per bassa latenza)
-      if (hls && typeof hls.liveSyncPosition === 'number' && !isNaN(hls.liveSyncPosition)) {
-        // ⚡ Buffer MINIMO (0.5-1s) per stare il più vicino possibile al live
-        const targetPosition = hls.liveSyncPosition - 0.8;
-        console.log('⚡ Going to live edge:', targetPosition, '(liveSyncPosition:', hls.liveSyncPosition, ')');
-        video.currentTime = Math.max(0, targetPosition);
-        
-        // Forza reload aggressivo per minimizzare latenza
-        if (typeof hls.startLoad === 'function') {
-          hls.stopLoad();
-          setTimeout(() => {
-            hls.startLoad(targetPosition);
-            video.play().catch(() => {});
-          }, 50);
-        } else {
-          video.play().catch(() => {});
-        }
-        return;
-      }
+      // ⚡ Esegui il seek al live edge con il manager
+      const success = await liveEdgeManager.seekToLiveEdge(
+        video,
+        diagnostics,
+        hlsRef.current
+      );
       
-      // Metodo 2: Usa seekable ranges (con buffer minimo)
-      if (video.seekable && video.seekable.length > 0) {
-        const last = video.seekable.length - 1;
-        const end = video.seekable.end(last);
-        // ⚡ Buffer ridotto a 1 secondo per bassa latenza
-        const targetPosition = Math.max(0, end - 1);
-        console.log('⚡ Going to live using seekable:', targetPosition, '(end:', end, ')');
-        video.currentTime = targetPosition;
-        
-        // Reload veloce
-        if (hls && typeof hls.startLoad === 'function') {
-          hls.stopLoad();
-          setTimeout(() => {
-            hls.startLoad(targetPosition);
-            video.play().catch(() => {});
-          }, 50);
-        } else {
-          video.play().catch(() => {});
-        }
-        return;
-      }
-      
-      // Metodo 3: Ricarica completa dello stream (ultimo resort)
-      console.log('⚡ Full reload to live edge');
-      if (hls) {
-        hls.stopLoad();
-        setTimeout(() => {
-          hls.startLoad();
-          video.play().catch(() => {});
-        }, 100);
+      if (success) {
+        console.log('✅ Seek al live completato con successo');
       } else {
-        video.play().catch(() => {});
+        console.warn('⚠️ Seek al live fallito, ma il video continua');
       }
     } catch (err) {
-      console.warn('goToLive error', err);
+      console.error('❌ Errore durante goToLive:', err);
+      // Fallback: prova comunque a riavviare il video
       video.play().catch(() => {});
     }
   };

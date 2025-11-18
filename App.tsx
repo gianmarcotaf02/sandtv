@@ -6,6 +6,7 @@ import AuthModal from './components/AuthModal';
 import { useStore } from './store/useStore';
 import { useM3UParser, useXMLTVParser } from './hooks/useParser';
 import { useAuth } from './hooks/useAuth';
+import { useLiveEdgeDebugging } from './hooks/useLiveEdgeDebugging';
 import { db } from './lib/db';
 
 // Demo M3U content
@@ -28,6 +29,9 @@ const App: React.FC = () => {
   const { parseXMLTV } = useXMLTVParser();
   const { user, loadPlaylist, savePlaylist, logout, saveUserData, loadUserData } = useAuth();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
+  // 🔧 Integrazione debugging live edge (abilitato in development)
+  useLiveEdgeDebugging(process.env.NODE_ENV === 'development');
 
   // Handle logout with playlist reset
   const handleLogout = async () => {

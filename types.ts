@@ -10,6 +10,8 @@ export interface Channel {
     name: string | null;
     logo: string | null;
   };
+  contentType?: 'live' | 'on-demand' | 'vod' | 'catchup' | 'unknown';
+  contentTypeConfidence?: number;
 }
 
 export interface Program {

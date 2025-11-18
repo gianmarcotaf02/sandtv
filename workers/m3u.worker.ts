@@ -1,5 +1,6 @@
 // Web Worker for parsing M3U playlists
 import { Channel } from '../types';
+import { detectContentType, ContentType } from '../lib/contentDetector';
 
 interface ParseM3UMessage {
   type: 'PARSE_M3U';
@@ -73,6 +74,16 @@ function parseM3U(content: string): { channels: Channel[]; epgUrl: string | null
         const tvgLogo = getAttr('tvg-logo');
         const group = getAttr('group-title') || 'Uncategorized';
 
+        // Auto-detect content type
+        const detection = detectContentType({
+          channelName: name,
+          groupTitle: group,
+          url,
+          tvgId: tvgId || undefined,
+          epgUrl: epgUrl || undefined,
+          hasEpgData: false, // Will be updated when EPG is loaded
+        });
+
         channels.push({
           id: `${tvgId || name}-${url.substring(0, 20)}`,
           name,
@@ -84,6 +95,8 @@ function parseM3U(content: string): { channels: Channel[]; epgUrl: string | null
             name: tvgName,
             logo: tvgLogo,
           },
+          contentType: detection.contentType as 'live' | 'on-demand' | 'vod' | 'catchup' | 'unknown',
+          contentTypeConfidence: detection.confidence,
         });
       }
     }

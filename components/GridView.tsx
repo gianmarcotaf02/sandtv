@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Channel, EpgData } from '../types';
 import { PlayIcon } from './icons';
+import { getContentTypeLabel, getContentTypeColor } from '../lib/contentDetector';
 
 interface GridViewProps {
   channels: Channel[];
@@ -86,6 +87,13 @@ const GridView: React.FC<GridViewProps> = ({ channels, currentChannel, onSelectC
                   <div className="absolute top-2 right-2 bg-red-600 rounded-full px-2 py-1 text-xs font-bold text-white flex items-center gap-1">
                     <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
                     LIVE
+                  </div>
+                )}
+                
+                {/* Content Type Badge */}
+                {channel.contentType && (
+                  <div className={`absolute top-2 left-2 rounded-full px-2 py-1 text-xs font-bold text-white ${getContentTypeColor(channel.contentType as any)}`}>
+                    {getContentTypeLabel(channel.contentType as any).split(' ')[1]}
                   </div>
                 )}
               </div>
