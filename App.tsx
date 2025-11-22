@@ -3,9 +3,11 @@ import { Toaster, toast } from 'react-hot-toast';
 import Landing from './components/Landing';
 import PlayerUI from './components/PlayerUI';
 import AuthModal from './components/AuthModal';
+import XtreamAuthModal from './components/XtreamAuthModal';
 import { useStore } from './store/useStore';
 import { useM3UParser, useXMLTVParser } from './hooks/useParser';
 import { useAuth } from './hooks/useAuth';
+import { useXtreamParser } from './hooks/useXtreamParser';
 import { useLiveEdgeDebugging } from './hooks/useLiveEdgeDebugging';
 import { db } from './lib/db';
 
@@ -29,6 +31,7 @@ const App: React.FC = () => {
   const { parseXMLTV } = useXMLTVParser();
   const { user, loadPlaylist, savePlaylist, logout, saveUserData, loadUserData } = useAuth();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isXtreamAuthModalOpen, setIsXtreamAuthModalOpen] = useState(false);
 
   // 🔧 Integrazione debugging live edge (abilitato in development)
   useLiveEdgeDebugging(process.env.NODE_ENV === 'development');
@@ -370,6 +373,38 @@ const App: React.FC = () => {
     toast.success('Playlist rimossa');
   }, [resetPlaylist]);
 
+  // Handle playlist selection from PlaylistManager
+  const handleSelectPlaylist = useCallback(
+    async (m3uUrl: string, epgUrl?: string | null) => {
+      // Find the saved playlist and update its lastUsed
+      const savedPlaylist = useStore.getState().savedPlaylists.find(p => p.m3uUrl === m3uUrl);
+      if (savedPlaylist) {
+        useStore.getState().updatePlaylistLastUsed(savedPlaylist.id);
+      }
+      
+      const loadingToast = toast.loading('Caricamento playlist...');
+      
+      try {
+        const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(m3uUrl)}`;
+        const response = await fetch(proxyUrl);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        const content = await response.text();
+        toast.dismiss(loadingToast);
+        await handleDataLoad(content, m3uUrl);
+        if (epgUrl) {
+          await handleLoadEpg(epgUrl);
+        }
+      } catch (error) {
+        console.error('Playlist selection error:', error);
+        toast.error('Impossibile caricare la playlist', { id: loadingToast });
+        setIsLoading(false);
+      }
+    },
+    [handleDataLoad, handleLoadEpg, setIsLoading]
+  );
+
   // Load saved playlist when user logs in
   useEffect(() => {
     let isExecuting = false; // Prevent duplicate execution
@@ -442,10 +477,16 @@ const App: React.FC = () => {
           user={user}
           onOpenAuth={() => setIsAuthModalOpen(true)}
           onLogout={handleLogout}
+          onOpenXtreamAuth={() => setIsXtreamAuthModalOpen(true)}
+          onSelectPlaylist={handleSelectPlaylist}
         />
         <AuthModal 
           isOpen={isAuthModalOpen} 
           onClose={() => setIsAuthModalOpen(false)}
+        />
+        <XtreamAuthModal 
+          isOpen={isXtreamAuthModalOpen}
+          onClose={() => setIsXtreamAuthModalOpen(false)}
         />
       </>
     );

@@ -62,7 +62,22 @@ interface WatchHistory {
   duration: number;
 }
 
+interface SavedPlaylist {
+  id: string;
+  name: string;
+  m3uUrl: string;
+  epgUrl?: string | null;
+  createdAt: number;
+  lastUsed?: number;
+}
+
 interface StoreState {
+  // Saved playlists
+  savedPlaylists: SavedPlaylist[];
+  addSavedPlaylist: (playlist: SavedPlaylist) => void;
+  removeSavedPlaylist: (id: string) => void;
+  updatePlaylistLastUsed: (id: string) => void;
+
   // Playlist data (M3U)
   playlist: PlaylistData;
   setChannels: (channels: Channel[]) => void;
@@ -165,6 +180,23 @@ const initialXtreamPlaylist: XtreamPlaylistData = {
 export const useStore = create<StoreState>()(
   persist(
     (set, get) => ({
+      // Saved playlists
+      savedPlaylists: [],
+      addSavedPlaylist: (playlist) =>
+        set((state) => ({
+          savedPlaylists: [...state.savedPlaylists, playlist],
+        })),
+      removeSavedPlaylist: (id) =>
+        set((state) => ({
+          savedPlaylists: state.savedPlaylists.filter((p) => p.id !== id),
+        })),
+      updatePlaylistLastUsed: (id) =>
+        set((state) => ({
+          savedPlaylists: state.savedPlaylists.map((p) =>
+            p.id === id ? { ...p, lastUsed: Date.now() } : p
+          ),
+        })),
+
       // Playlist data (M3U)
       playlist: {
         channels: [],
@@ -336,6 +368,11 @@ export const useStore = create<StoreState>()(
       name: 'iptv-storage',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
+        savedPlaylists: state.savedPlaylists,
+        playlist: {
+          m3uUrl: state.playlist.m3uUrl,
+          epgUrl: state.playlist.epgUrl,
+        },
         favorites: state.favorites,
         customGroups: state.customGroups,
         watchHistory: state.watchHistory,

@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import PlaylistManager from './PlaylistManager';
 
 // Inline logo component with fallback between lowercase and capitalized filename
 const LogoFallback: React.FC<React.ImgHTMLAttributes<HTMLImageElement>> = (props) => {
@@ -14,7 +15,7 @@ const LogoFallback: React.FC<React.ImgHTMLAttributes<HTMLImageElement>> = (props
     />
   );
 };
-import { UploadIcon, LinkIcon, PlayIcon, UserIcon, ArrowRightOnRectangleIcon } from './icons';
+import { UploadIcon, LinkIcon, PlayIcon, UserIcon, ArrowRightOnRectangleIcon, SettingsIcon } from './icons';
 
 interface LandingProps {
   onLoadFromUrl: (url: string) => void;
@@ -24,10 +25,23 @@ interface LandingProps {
   user: { email: string } | null;
   onOpenAuth: () => void;
   onLogout: () => void;
+  onOpenXtreamAuth?: () => void;
+  onSelectPlaylist?: (m3uUrl: string, epgUrl?: string | null) => void;
 }
 
-const Landing: React.FC<LandingProps> = ({ onLoadFromUrl, onLoadFromFile, onLoadDemo, isLoading, user, onOpenAuth, onLogout }) => {
+const Landing: React.FC<LandingProps> = ({ 
+  onLoadFromUrl, 
+  onLoadFromFile, 
+  onLoadDemo, 
+  isLoading, 
+  user, 
+  onOpenAuth, 
+  onLogout,
+  onOpenXtreamAuth,
+  onSelectPlaylist
+}) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showPlaylistManager, setShowPlaylistManager] = useState(false);
   const [showUrlModal, setShowUrlModal] = useState(false);
   const [urlInput, setUrlInput] = useState('');
 
@@ -141,26 +155,57 @@ const Landing: React.FC<LandingProps> = ({ onLoadFromUrl, onLoadFromFile, onLoad
             <p className="mt-4 text-lg text-gray-300">Caricamento Playlist...</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl w-full px-4">
-          <OptionCard
-            icon={<LinkIcon className="w-10 h-10 md:w-12 md:h-12" />}
-            title="Carica da URL"
-            description="Riproduci da qualsiasi link di playlist M3U/M3U8."
-            onClick={handleUrlLoad}
-          />
-          <OptionCard
-            icon={<UploadIcon className="w-10 h-10 md:w-12 md:h-12" />}
-            title="Carica File"
-            description="Usa un file locale .m3u o .m3u8 dal tuo dispositivo."
-            onClick={() => fileInputRef.current?.click()}
-          />
-          <OptionCard
-            icon={<PlayIcon className="w-10 h-10 md:w-12 md:h-12" />}
-            title="Carica Demo"
-            description="Prova il lettore con una playlist di esempio."
-            onClick={onLoadDemo}
-          />
-        </div>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-5xl w-full px-4">
+            <OptionCard
+              icon={<LinkIcon className="w-10 h-10 md:w-12 md:h-12" />}
+              title="Carica da URL"
+              description="Riproduci da qualsiasi link di playlist M3U/M3U8."
+              onClick={handleUrlLoad}
+            />
+            <OptionCard
+              icon={<UploadIcon className="w-10 h-10 md:w-12 md:h-12" />}
+              title="Carica File"
+              description="Usa un file locale .m3u o .m3u8 dal tuo dispositivo."
+              onClick={() => fileInputRef.current?.click()}
+            />
+            <OptionCard
+              icon={<PlayIcon className="w-10 h-10 md:w-12 md:h-12" />}
+              title="Carica Demo"
+              description="Prova il lettore con una playlist di esempio."
+              onClick={onLoadDemo}
+            />
+            {onOpenXtreamAuth && (
+              <OptionCard
+                icon={<SettingsIcon className="w-10 h-10 md:w-12 md:h-12" />}
+                title="Xtream Codes"
+                description="Connettiti a un server Xtream Codes per streaming."
+                onClick={onOpenXtreamAuth}
+              />
+            )}
+          </div>
+          <div className="mt-8 flex gap-4">
+            <button
+              onClick={() => setShowPlaylistManager(true)}
+              className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-2xl transition-all transform hover:scale-105 active:scale-95 flex items-center gap-2"
+            >
+              <SettingsIcon className="w-5 h-5" />
+              Gestione Playlist
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* PlaylistManager Modal */}
+      {showPlaylistManager && (
+        <PlaylistManager 
+          isOpen={showPlaylistManager} 
+          onClose={() => setShowPlaylistManager(false)}
+          onSelectPlaylist={(m3uUrl, epgUrl) => {
+            onSelectPlaylist?.(m3uUrl, epgUrl);
+            setShowPlaylistManager(false);
+          }}
+        />
       )}
 
       <input
