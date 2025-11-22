@@ -41,6 +41,7 @@ const App: React.FC = () => {
   const handleLogout = async () => {
     await logout();
     resetPlaylist(); // Reset playlist after logout
+    setSkipAutoLoadPlaylist(false); // Reset skip flag
   };
 
   // Initialize database
@@ -469,6 +470,7 @@ const App: React.FC = () => {
   }, [user?.uid, playlist.m3uUrl, skipAutoLoadPlaylist]);
 
   if (playlist.channels.length === 0) {
+    console.log('🏠 Rendering Landing - skipAutoLoadPlaylist:', skipAutoLoadPlaylist);
     return (
       <>
         <Toaster
@@ -505,6 +507,7 @@ const App: React.FC = () => {
     );
   }
 
+  console.log('🎬 Rendering PlayerUI with channels:', playlist.channels.length);
   return (
     <>
       <Toaster
