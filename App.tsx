@@ -112,7 +112,10 @@ const App: React.FC = () => {
   const handleDataLoad = useCallback(
     async (content: string, m3uUrl?: string) => {
       setIsLoading(true);
-      setSkipAutoLoadPlaylist(false); // Allow auto-load after successful playlist load
+      // Solo reset se è una nuova playlist (non è auto-load)
+      if (skipAutoLoadPlaylist) {
+        setSkipAutoLoadPlaylist(false);
+      }
       const loadingToast = toast.loading('Caricamento playlist...');
 
       try {
