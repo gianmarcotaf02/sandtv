@@ -179,6 +179,9 @@ export class XtreamApiClient {
       
       const response = await fetch(url);
       console.log('📡 Response status:', response.status);
+      console.log('📡 Response headers:', {
+        'content-type': response.headers.get('content-type'),
+      });
 
       if (!response.ok) {
         const errorText = await response.text().catch(() => '');
@@ -190,8 +193,18 @@ export class XtreamApiClient {
         return { success: false, error: `HTTP ${response.status}` };
       }
 
-      const data = await response.json();
-      console.log('✅ Connection successful, response:', data);
+      const bodyText = await response.text();
+      console.log('📄 Response body:', bodyText.substring(0, 500));
+      
+      let data;
+      try {
+        data = JSON.parse(bodyText);
+      } catch (e) {
+        console.error('❌ Response is not JSON:', e);
+        return { success: false, error: 'Response non JSON dal server' };
+      }
+      
+      console.log('✅ Connection successful, parsed data:', data);
 
       // Se è un oggetto vuoto o array vuoto, connessione ok
       if (typeof data === 'object') {
