@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { Channel, EpgData, Group, Program } from '../types';
+import { XtreamCredentials } from '../lib/xtreamApi';
 
 interface PlayerState {
   isPlaying: boolean;
@@ -30,6 +31,16 @@ interface PlaylistData {
   lastUpdated: number | null;
 }
 
+interface XtreamPlaylistData {
+  liveChannels: Channel[];
+  vodChannels: Channel[];
+  seriesChannels: Channel[];
+  epgData: EpgData;
+  playlistName: string;
+  credentials?: XtreamCredentials;
+  lastSynced: number | null;
+}
+
 interface Settings {
   theme: 'dark' | 'light';
   autoplay: boolean;
@@ -52,7 +63,7 @@ interface WatchHistory {
 }
 
 interface StoreState {
-  // Playlist data
+  // Playlist data (M3U)
   playlist: PlaylistData;
   setChannels: (channels: Channel[]) => void;
   setEpgData: (epgData: EpgData) => void;
@@ -60,6 +71,13 @@ interface StoreState {
   setM3uUrl: (m3uUrl: string | null) => void;
   updateLastUpdated: () => void;
   resetPlaylist: () => void;
+
+  // Xtream playlist data
+  xtreamPlaylist: XtreamPlaylistData;
+  setXtreamPlaylist: (data: Partial<XtreamPlaylistData>) => void;
+  resetXtreamPlaylist: () => void;
+  isXtreamActive: boolean;
+  setIsXtreamActive: (active: boolean) => void;
 
   // Current playback
   currentChannel: Channel | null;
@@ -134,10 +152,20 @@ const initialSettings: Settings = {
   hardwareAcceleration: 'disabled', // Temporaneamente disabilitato per test
 };
 
+const initialXtreamPlaylist: XtreamPlaylistData = {
+  liveChannels: [],
+  vodChannels: [],
+  seriesChannels: [],
+  epgData: {},
+  playlistName: '',
+  credentials: undefined,
+  lastSynced: null,
+};
+
 export const useStore = create<StoreState>()(
   persist(
     (set, get) => ({
-      // Playlist data
+      // Playlist data (M3U)
       playlist: {
         channels: [],
         epgData: {},
@@ -174,8 +202,20 @@ export const useStore = create<StoreState>()(
             m3uUrl: null,
             lastUpdated: null,
           },
-          currentChannel: null,
         }),
+
+      // Xtream playlist data
+      xtreamPlaylist: initialXtreamPlaylist,
+      setXtreamPlaylist: (data) =>
+        set((state) => ({
+          xtreamPlaylist: { ...state.xtreamPlaylist, ...data },
+        })),
+      resetXtreamPlaylist: () =>
+        set({
+          xtreamPlaylist: initialXtreamPlaylist,
+        }),
+      isXtreamActive: false,
+      setIsXtreamActive: (active) => set({ isXtreamActive: active }),
 
       // Current playback
       currentChannel: null,
