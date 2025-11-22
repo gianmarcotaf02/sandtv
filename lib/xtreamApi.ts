@@ -141,6 +141,7 @@ export class XtreamApiClient {
   private password: string;
   private cacheExpiry = 3600000; // 1 ora
   private cache = new Map<string, CacheEntry>();
+  private corsProxy = 'https://cors-anywhere.herokuapp.com/';
 
   constructor(credentials: XtreamCredentials) {
     this.baseUrl = credentials.server.replace(/\/$/, ''); // Rimuovi trailing slash
@@ -161,6 +162,11 @@ export class XtreamApiClient {
       Object.entries(params).forEach(([key, value]) => {
         url.searchParams.append(key, String(value));
       });
+    }
+
+    // Se il server è HTTP e siamo su HTTPS, usa il proxy CORS
+    if (this.baseUrl.startsWith('http://') && window.location.protocol === 'https:') {
+      return this.corsProxy + url.toString();
     }
 
     return url.toString();
