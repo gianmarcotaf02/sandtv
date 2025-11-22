@@ -1,12 +1,18 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-
 /**
  * Proxy API per Xtream Codes
  * Questo endpoint agisce da intermediario tra il browser e il server Xtream
  * Consente di aggirare i controlli CORS e Mixed Content del browser
  */
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+interface QueryParams {
+  server?: string | string[];
+  username?: string | string[];
+  password?: string | string[];
+  action?: string | string[];
+  [key: string]: string | string[] | undefined;
+}
+
+export default async function handler(req: any, res: any) {
   // Solo GET
   if (req.method !== 'GET') {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -14,7 +20,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { server, username, password, action, ...params } = req.query;
+  const query: QueryParams = req.query;
+  const { server, username, password, action, ...params } = query;
 
   // Valida parametri richiesti
   if (!server || !username || !password || !action) {
@@ -25,15 +32,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // Valida che server sia un URL valido
+    // Estrai i valori dalle query (potrebbero essere array)
     const serverStr = Array.isArray(server) ? server[0] : server;
+    const usernameStr = Array.isArray(username) ? username[0] : username;
+    const passwordStr = Array.isArray(password) ? password[0] : password;
+    const actionStr = Array.isArray(action) ? action[0] : action;
+
+    // Valida che server sia un URL valido
     const serverUrl = new URL(serverStr);
     
     // Costruisci URL API
     const apiUrl = new URL(`${serverUrl.protocol}//${serverUrl.host}${serverUrl.pathname || ''}/player_api.php`);
-    apiUrl.searchParams.append('username', Array.isArray(username) ? username[0] : username);
-    apiUrl.searchParams.append('password', Array.isArray(password) ? password[0] : password);
-    apiUrl.searchParams.append('action', Array.isArray(action) ? action[0] : action);
+    apiUrl.searchParams.append('username', usernameStr);
+    apiUrl.searchParams.append('password', passwordStr);
+    apiUrl.searchParams.append('action', actionStr);
 
     // Aggiungi parametri opzionali
     Object.entries(params).forEach(([key, value]) => {
