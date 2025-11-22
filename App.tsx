@@ -4,6 +4,7 @@ import Landing from './components/Landing';
 import PlayerUI from './components/PlayerUI';
 import AuthModal from './components/AuthModal';
 import XtreamAuthModal from './components/XtreamAuthModal';
+import ErrorBoundary from './components/ErrorBoundary';
 import { useStore } from './store/useStore';
 import { useM3UParser, useXMLTVParser } from './hooks/useParser';
 import { useAuth } from './hooks/useAuth';
@@ -472,7 +473,8 @@ const App: React.FC = () => {
   if (playlist.channels.length === 0) {
     console.log('🏠 Rendering Landing - skipAutoLoadPlaylist:', skipAutoLoadPlaylist);
     return (
-      <>
+      <ErrorBoundary>
+        <>
         <Toaster
           position="top-center"
           toastOptions={{
@@ -504,12 +506,14 @@ const App: React.FC = () => {
           onClose={() => setIsXtreamAuthModalOpen(false)}
         />
       </>
+        </ErrorBoundary>
     );
   }
 
   console.log('🎬 Rendering PlayerUI with channels:', playlist.channels.length);
   return (
-    <>
+    <ErrorBoundary>
+      <>
       <Toaster
         position="top-right"
         toastOptions={{
@@ -529,6 +533,7 @@ const App: React.FC = () => {
         currentEpgUrl={playlist.epgUrl}
       />
     </>
+    </ErrorBoundary>
   );
 };
 
