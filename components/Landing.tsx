@@ -27,6 +27,7 @@ interface LandingProps {
   onLogout: () => void;
   onOpenXtreamAuth?: () => void;
   onSelectPlaylist?: (m3uUrl: string, epgUrl?: string | null) => void;
+  onNewPlaylist?: () => void;
 }
 
 const Landing: React.FC<LandingProps> = ({ 
@@ -38,7 +39,8 @@ const Landing: React.FC<LandingProps> = ({
   onOpenAuth, 
   onLogout,
   onOpenXtreamAuth,
-  onSelectPlaylist
+  onSelectPlaylist,
+  onNewPlaylist
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showPlaylistManager, setShowPlaylistManager] = useState(false);
@@ -185,6 +187,17 @@ const Landing: React.FC<LandingProps> = ({
             )}
           </div>
           <div className="mt-8 flex gap-4">
+            {onNewPlaylist && (
+              <button
+                onClick={() => {
+                  onNewPlaylist();
+                  setShowPlaylistManager(false);
+                }}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-2xl transition-all transform hover:scale-105 active:scale-95 flex items-center gap-2"
+              >
+                ✚ Nuova Playlist
+              </button>
+            )}
             <button
               onClick={() => setShowPlaylistManager(true)}
               className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-2xl transition-all transform hover:scale-105 active:scale-95 flex items-center gap-2"

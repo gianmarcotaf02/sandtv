@@ -32,6 +32,7 @@ const App: React.FC = () => {
   const { user, loadPlaylist, savePlaylist, logout, saveUserData, loadUserData } = useAuth();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isXtreamAuthModalOpen, setIsXtreamAuthModalOpen] = useState(false);
+  const [skipAutoLoadPlaylist, setSkipAutoLoadPlaylist] = useState(false);
 
   // 🔧 Integrazione debugging live edge (abilitato in development)
   useLiveEdgeDebugging(process.env.NODE_ENV === 'development');
@@ -109,6 +110,7 @@ const App: React.FC = () => {
   const handleDataLoad = useCallback(
     async (content: string, m3uUrl?: string) => {
       setIsLoading(true);
+      setSkipAutoLoadPlaylist(false); // Allow auto-load after successful playlist load
       const loadingToast = toast.loading('Caricamento playlist...');
 
       try {
@@ -373,9 +375,18 @@ const App: React.FC = () => {
     toast.success('Playlist rimossa');
   }, [resetPlaylist]);
 
+  // Handle "New Playlist" button - stay on Landing and don't auto-load
+  const handleNewPlaylist = useCallback(() => {
+    resetPlaylist();
+    setSkipAutoLoadPlaylist(true);
+    toast.success('Pronto per caricare una nuova playlist');
+  }, [resetPlaylist]);
+
   // Handle playlist selection from PlaylistManager
   const handleSelectPlaylist = useCallback(
     async (m3uUrl: string, epgUrl?: string | null) => {
+      setSkipAutoLoadPlaylist(false); // Resume auto-load after selection
+      
       // Find the saved playlist and update its lastUsed
       const savedPlaylist = useStore.getState().savedPlaylists.find(p => p.m3uUrl === m3uUrl);
       if (savedPlaylist) {
@@ -411,6 +422,7 @@ const App: React.FC = () => {
     
     const loadUserPlaylist = async () => {
       if (isExecuting) return;
+      if (skipAutoLoadPlaylist) return; // Don't auto-load if user wants new playlist
       
       console.log('Load playlist effect triggered');
       console.log('User:', user);
@@ -454,7 +466,7 @@ const App: React.FC = () => {
       }
     };
     loadUserPlaylist();
-  }, [user?.uid, playlist.m3uUrl]);
+  }, [user?.uid, playlist.m3uUrl, skipAutoLoadPlaylist]);
 
   if (playlist.channels.length === 0) {
     return (
@@ -479,6 +491,7 @@ const App: React.FC = () => {
           onLogout={handleLogout}
           onOpenXtreamAuth={() => setIsXtreamAuthModalOpen(true)}
           onSelectPlaylist={handleSelectPlaylist}
+          onNewPlaylist={handleNewPlaylist}
         />
         <AuthModal 
           isOpen={isAuthModalOpen} 
