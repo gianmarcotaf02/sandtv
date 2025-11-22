@@ -141,7 +141,6 @@ export class XtreamApiClient {
   private password: string;
   private cacheExpiry = 3600000; // 1 ora
   private cache = new Map<string, CacheEntry>();
-  private corsProxy = 'https://cors-anywhere.herokuapp.com/';
 
   constructor(credentials: XtreamCredentials) {
     this.baseUrl = credentials.server.replace(/\/$/, ''); // Rimuovi trailing slash
@@ -164,12 +163,19 @@ export class XtreamApiClient {
       });
     }
 
-    // Se il server è HTTP e siamo su HTTPS, usa il proxy CORS
-    if (this.baseUrl.startsWith('http://') && window.location.protocol === 'https:') {
-      return this.corsProxy + url.toString();
-    }
-
     return url.toString();
+  }
+
+  /**
+   * Costruisci URL al proxy se necessario
+   */
+  private getProxiedUrl(apiUrl: string): string {
+    // Se siamo su HTTPS e l'API è HTTP, usa il proxy
+    if (apiUrl.startsWith('http://') && typeof window !== 'undefined' && window.location.protocol === 'https:') {
+      const encodedUrl = encodeURIComponent(apiUrl);
+      return `/api/xtream-proxy?url=${encodedUrl}`;
+    }
+    return apiUrl;
   }
 
   /**
@@ -177,20 +183,22 @@ export class XtreamApiClient {
    */
   async testConnection(): Promise<{ success: boolean; error?: string }> {
     try {
-      const url = this.buildUrl('get_live_categories');
-      console.log('🔗 Testing Xtream connection to:', url);
+      const apiUrl = this.buildUrl('get_live_categories');
+      const proxyUrl = this.getProxiedUrl(apiUrl);
+      console.log('🔗 Testing Xtream connection to:', apiUrl);
+      console.log('📍 Proxy URL:', proxyUrl);
       
-      const response = await fetch(url);
+      const response = await fetch(proxyUrl);
       console.log('📡 Response status:', response.status);
 
       if (!response.ok) {
-        const errorText = await response.text();
+        const errorText = await response.text().catch(() => '');
         console.error('❌ HTTP Error:', response.status, errorText);
         
         if (response.status === 401 || response.status === 403) {
           return { success: false, error: 'Credenziali non valide' };
         }
-        return { success: false, error: `HTTP ${response.status}: ${errorText}` };
+        return { success: false, error: `HTTP ${response.status}` };
       }
 
       const data = await response.json();
