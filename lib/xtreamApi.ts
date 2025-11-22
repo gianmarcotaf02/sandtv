@@ -166,24 +166,6 @@ export class XtreamApiClient {
     return url.toString();
   }
 
-  /**
-   * Costruisci URL al proxy backend
-   */
-  private getProxyUrl(action: string, params?: Record<string, string | number>): string {
-    const proxyUrl = new URL('/api/xtream', window.location.origin);
-    proxyUrl.searchParams.append('server', this.baseUrl);
-    proxyUrl.searchParams.append('username', this.username);
-    proxyUrl.searchParams.append('password', this.password);
-    proxyUrl.searchParams.append('action', action);
-
-    if (params) {
-      Object.entries(params).forEach(([key, value]) => {
-        proxyUrl.searchParams.append(key, String(value));
-      });
-    }
-
-    return proxyUrl.toString();
-  }
 
 
 
@@ -192,10 +174,10 @@ export class XtreamApiClient {
    */
   async testConnection(): Promise<{ success: boolean; error?: string }> {
     try {
-      const proxyUrl = this.getProxyUrl('get_live_categories');
-      console.log('🔗 Testing Xtream via proxy:', proxyUrl);
+      const url = this.buildUrl('get_live_categories');
+      console.log('🔗 Testing Xtream connection to:', url);
       
-      const response = await fetch(proxyUrl);
+      const response = await fetch(url);
       console.log('📡 Response status:', response.status);
 
       if (!response.ok) {
@@ -231,7 +213,7 @@ export class XtreamApiClient {
     const cached = this.getFromCache<XtreamServerInfo>(cacheKey);
     if (cached !== undefined) return cached;
 
-    const url = this.getProxyUrl('get_server_info');
+    const url = this.buildUrl('get_server_info');
     const response = await fetch(url);
     const data = await response.json();
 
@@ -247,7 +229,7 @@ export class XtreamApiClient {
     const cached = this.getFromCache<XtreamCategory[]>(cacheKey);
     if (cached !== undefined) return cached;
 
-    const url = this.getProxyUrl('get_live_categories');
+    const url = this.buildUrl('get_live_categories');
     const response = await fetch(url);
     const data = await response.json();
 
@@ -264,7 +246,7 @@ export class XtreamApiClient {
     const cached = this.getFromCache<XtreamLiveChannel[]>(cacheKey);
     if (cached !== undefined) return cached;
 
-    const url = this.getProxyUrl('get_live_streams', params);
+    const url = this.buildUrl('get_live_streams', params);
     const response = await fetch(url);
     const data = await response.json();
 
@@ -280,7 +262,7 @@ export class XtreamApiClient {
     const cached = this.getFromCache<XtreamCategory[]>(cacheKey);
     if (cached !== undefined) return cached;
 
-    const url = this.getProxyUrl('get_vod_categories');
+    const url = this.buildUrl('get_vod_categories');
     const response = await fetch(url);
     const data = await response.json();
 
@@ -297,7 +279,7 @@ export class XtreamApiClient {
     const cached = this.getFromCache<XtreamVOD[]>(cacheKey);
     if (cached !== undefined) return cached;
 
-    const url = this.getProxyUrl('get_vod_streams', params);
+    const url = this.buildUrl('get_vod_streams', params);
     const response = await fetch(url);
     const data = await response.json();
 
@@ -313,7 +295,7 @@ export class XtreamApiClient {
     const cached = this.getFromCache<XtreamVOD>(cacheKey);
     if (cached !== undefined) return cached;
 
-    const url = this.getProxyUrl('get_vod_info', { vod_id: vodId });
+    const url = this.buildUrl('get_vod_info', { vod_id: vodId });
     const response = await fetch(url);
     const data = await response.json();
 
@@ -332,7 +314,7 @@ export class XtreamApiClient {
     const cached = this.getFromCache<XtreamCategory[]>(cacheKey);
     if (cached !== undefined) return cached;
 
-    const url = this.getProxyUrl('get_series_categories');
+    const url = this.buildUrl('get_series_categories');
     const response = await fetch(url);
     const data = await response.json();
 
@@ -349,7 +331,7 @@ export class XtreamApiClient {
     const cached = this.getFromCache<XtreamSeries[]>(cacheKey);
     if (cached !== undefined) return cached;
 
-    const url = this.getProxyUrl('get_series', params);
+    const url = this.buildUrl('get_series', params);
     const response = await fetch(url);
     const data = await response.json();
 
@@ -365,7 +347,7 @@ export class XtreamApiClient {
     const cached = this.getFromCache<XtreamSeriesEpisode[]>(cacheKey);
     if (cached !== undefined) return cached;
 
-    const url = this.getProxyUrl('get_series_info', { series_id: seriesId });
+    const url = this.buildUrl('get_series_info', { series_id: seriesId });
     const response = await fetch(url);
     const data = await response.json();
 
@@ -384,7 +366,7 @@ export class XtreamApiClient {
     const cached = this.getFromCache<XtreamEPGProgram[]>(cacheKey);
     if (cached !== undefined) return cached;
 
-    const url = this.getProxyUrl('get_epg', { stream_id: channelId });
+    const url = this.buildUrl('get_epg', { stream_id: channelId });
     const response = await fetch(url);
     const data = await response.json();
 
@@ -400,7 +382,7 @@ export class XtreamApiClient {
     const cached = this.getFromCache<XtreamEPGProgram[]>(cacheKey);
     if (cached !== undefined) return cached;
 
-    const url = this.getProxyUrl('get_epg_range', {
+    const url = this.buildUrl('get_epg_range', {
       range_start: startTime,
       range_end: endTime,
     });
