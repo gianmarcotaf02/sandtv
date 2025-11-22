@@ -367,6 +367,13 @@ export const useStore = create<StoreState>()(
     {
       name: 'iptv-storage',
       storage: createJSONStorage(() => localStorage),
+      onRehydrateStorage: () => (state, action) => {
+        // Ensure playlist has required fields
+        if (state) {
+          if (!state.playlist.channels) state.playlist.channels = [];
+          if (!state.playlist.epgData) state.playlist.epgData = {};
+        }
+      },
       partialize: (state) => ({
         savedPlaylists: state.savedPlaylists,
         playlist: {

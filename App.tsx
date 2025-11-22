@@ -470,7 +470,7 @@ const App: React.FC = () => {
     loadUserPlaylist();
   }, [user?.uid, playlist.m3uUrl, skipAutoLoadPlaylist]);
 
-  if (playlist.channels.length === 0) {
+  if (!playlist.channels || playlist.channels.length === 0) {
     console.log('🏠 Rendering Landing - skipAutoLoadPlaylist:', skipAutoLoadPlaylist);
     return (
       <ErrorBoundary>
