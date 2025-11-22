@@ -125,6 +125,14 @@ export interface XtreamCategory {
 }
 
 /**
+ * Interfaccia cache interna
+ */
+interface CacheEntry {
+  data: any;
+  timestamp: number;
+}
+
+/**
  * Client Xtream API
  */
 export class XtreamApiClient {
@@ -132,7 +140,7 @@ export class XtreamApiClient {
   private username: string;
   private password: string;
   private cacheExpiry = 3600000; // 1 ora
-  private cache = new Map<string, { data: any; timestamp: number }>();
+  private cache = new Map<string, CacheEntry>();
 
   constructor(credentials: XtreamCredentials) {
     this.baseUrl = credentials.server.replace(/\/$/, ''); // Rimuovi trailing slash
@@ -164,13 +172,23 @@ export class XtreamApiClient {
   async testConnection(): Promise<{ success: boolean; error?: string }> {
     try {
       const url = this.buildUrl('get_live_categories');
+      console.log('🔗 Testing Xtream connection to:', url);
+      
       const response = await fetch(url);
+      console.log('📡 Response status:', response.status);
 
       if (!response.ok) {
-        return { success: false, error: `HTTP ${response.status}` };
+        const errorText = await response.text();
+        console.error('❌ HTTP Error:', response.status, errorText);
+        
+        if (response.status === 401 || response.status === 403) {
+          return { success: false, error: 'Credenziali non valide' };
+        }
+        return { success: false, error: `HTTP ${response.status}: ${errorText}` };
       }
 
       const data = await response.json();
+      console.log('✅ Connection successful, response:', data);
 
       // Se è un oggetto vuoto o array vuoto, connessione ok
       if (typeof data === 'object') {
@@ -179,6 +197,7 @@ export class XtreamApiClient {
 
       return { success: false, error: 'Risposta inattesa' };
     } catch (error) {
+      console.error('❌ Connection error:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Errore connessione' };
     }
   }
@@ -188,8 +207,8 @@ export class XtreamApiClient {
    */
   async getServerInfo(): Promise<XtreamServerInfo> {
     const cacheKey = 'server_info';
-    const cached = this.getFromCache(cacheKey);
-    if (cached) return cached;
+    const cached = this.getFromCache<XtreamServerInfo>(cacheKey);
+    if (cached !== null) return cached;
 
     const url = this.buildUrl('get_server_info');
     const response = await fetch(url);
@@ -204,8 +223,8 @@ export class XtreamApiClient {
    */
   async getLiveCategories(): Promise<XtreamCategory[]> {
     const cacheKey = 'live_categories';
-    const cached = this.getFromCache(cacheKey);
-    if (cached) return cached;
+    const cached = this.getFromCache<XtreamCategory[]>(cacheKey);
+    if (cached !== undefined) return cached;
 
     const url = this.buildUrl('get_live_categories');
     const response = await fetch(url);
@@ -221,8 +240,8 @@ export class XtreamApiClient {
   async getLiveChannels(categoryId?: string | number): Promise<XtreamLiveChannel[]> {
     const params = categoryId ? { category_id: categoryId } : undefined;
     const cacheKey = `live_channels_${categoryId || 'all'}`;
-    const cached = this.getFromCache(cacheKey);
-    if (cached) return cached;
+    const cached = this.getFromCache<XtreamLiveChannel[]>(cacheKey);
+    if (cached !== undefined) return cached;
 
     const url = this.buildUrl('get_live_streams', params);
     const response = await fetch(url);
@@ -237,8 +256,8 @@ export class XtreamApiClient {
    */
   async getVODCategories(): Promise<XtreamCategory[]> {
     const cacheKey = 'vod_categories';
-    const cached = this.getFromCache(cacheKey);
-    if (cached) return cached;
+    const cached = this.getFromCache<XtreamCategory[]>(cacheKey);
+    if (cached !== undefined) return cached;
 
     const url = this.buildUrl('get_vod_categories');
     const response = await fetch(url);
@@ -254,8 +273,8 @@ export class XtreamApiClient {
   async getVOD(categoryId?: string | number): Promise<XtreamVOD[]> {
     const params = categoryId ? { category_id: categoryId } : undefined;
     const cacheKey = `vod_${categoryId || 'all'}`;
-    const cached = this.getFromCache(cacheKey);
-    if (cached) return cached;
+    const cached = this.getFromCache<XtreamVOD[]>(cacheKey);
+    if (cached !== undefined) return cached;
 
     const url = this.buildUrl('get_vod_streams', params);
     const response = await fetch(url);
@@ -270,8 +289,8 @@ export class XtreamApiClient {
    */
   async getVODInfo(vodId: number): Promise<XtreamVOD | null> {
     const cacheKey = `vod_info_${vodId}`;
-    const cached = this.getFromCache(cacheKey);
-    if (cached) return cached;
+    const cached = this.getFromCache<XtreamVOD>(cacheKey);
+    if (cached !== undefined) return cached;
 
     const url = this.buildUrl('get_vod_info', { vod_id: vodId });
     const response = await fetch(url);
@@ -289,8 +308,8 @@ export class XtreamApiClient {
    */
   async getSeriesCategories(): Promise<XtreamCategory[]> {
     const cacheKey = 'series_categories';
-    const cached = this.getFromCache(cacheKey);
-    if (cached) return cached;
+    const cached = this.getFromCache<XtreamCategory[]>(cacheKey);
+    if (cached !== undefined) return cached;
 
     const url = this.buildUrl('get_series_categories');
     const response = await fetch(url);
@@ -306,8 +325,8 @@ export class XtreamApiClient {
   async getSeries(categoryId?: string | number): Promise<XtreamSeries[]> {
     const params = categoryId ? { category_id: categoryId } : undefined;
     const cacheKey = `series_${categoryId || 'all'}`;
-    const cached = this.getFromCache(cacheKey);
-    if (cached) return cached;
+    const cached = this.getFromCache<XtreamSeries[]>(cacheKey);
+    if (cached !== undefined) return cached;
 
     const url = this.buildUrl('get_series', params);
     const response = await fetch(url);
@@ -322,8 +341,8 @@ export class XtreamApiClient {
    */
   async getSeriesEpisodes(seriesId: number): Promise<XtreamSeriesEpisode[]> {
     const cacheKey = `series_episodes_${seriesId}`;
-    const cached = this.getFromCache(cacheKey);
-    if (cached) return cached;
+    const cached = this.getFromCache<XtreamSeriesEpisode[]>(cacheKey);
+    if (cached !== undefined) return cached;
 
     const url = this.buildUrl('get_series_info', { series_id: seriesId });
     const response = await fetch(url);
@@ -341,8 +360,8 @@ export class XtreamApiClient {
    */
   async getLiveEPG(channelId: string | number): Promise<XtreamEPGProgram[]> {
     const cacheKey = `epg_live_${channelId}`;
-    const cached = this.getFromCache(cacheKey);
-    if (cached) return cached;
+    const cached = this.getFromCache<XtreamEPGProgram[]>(cacheKey);
+    if (cached !== undefined) return cached;
 
     const url = this.buildUrl('get_epg', { stream_id: channelId });
     const response = await fetch(url);
@@ -357,8 +376,8 @@ export class XtreamApiClient {
    */
   async getLiveEPGRange(startTime: number, endTime: number): Promise<XtreamEPGProgram[]> {
     const cacheKey = `epg_range_${startTime}_${endTime}`;
-    const cached = this.getFromCache(cacheKey);
-    if (cached) return cached;
+    const cached = this.getFromCache<XtreamEPGProgram[]>(cacheKey);
+    if (cached !== undefined) return cached;
 
     const url = this.buildUrl('get_epg_range', {
       range_start: startTime,
@@ -407,16 +426,16 @@ export class XtreamApiClient {
 
   // ===== Utility privati =====
 
-  private getFromCache<T>(key: string): T | null {
-    const cached = this.cache.get(key);
-    if (!cached) return null;
+  private getFromCache<T>(key: string): T | undefined {
+    const entry = this.cache.get(key);
+    if (!entry) return undefined;
 
-    if (Date.now() - cached.timestamp > this.cacheExpiry) {
+    if (Date.now() - entry.timestamp > this.cacheExpiry) {
       this.cache.delete(key);
-      return null;
+      return undefined;
     }
 
-    return cached.data as T;
+    return entry.data as T;
   }
 
   private setCache(key: string, data: any): void {
