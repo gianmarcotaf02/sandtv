@@ -63,31 +63,58 @@ exports.handler = async (event) => {
 
     console.log('🔄 Final URL:', apiUrl.toString());
 
-    // Set timeout con AbortController
+    // Set timeout con AbortController (aumentato a 15 secondi)
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000); // 5 secondi timeout
+    const timeout = setTimeout(() => controller.abort(), 15000); // 15 secondi timeout
 
     let response;
-    try {
-      response = await fetch(apiUrl.toString(), {
-        method: 'GET',
-        headers: {
-          'User-Agent': 'SandTV/1.0',
-        },
-        redirect: 'follow', // Segui max 20 redirect (default)
-        signal: controller.signal,
-      });
-    } catch (fetchError) {
-      clearTimeout(timeout);
-      console.error('❌ Fetch error:', fetchError.message);
-      if (fetchError.name === 'AbortError') {
-        return {
-          statusCode: 504,
-          headers,
-          body: JSON.stringify({ error: 'Timeout connecting to Xtream server' }),
-        };
+    let retries = 2;
+    let lastError;
+
+    // Retry logic con timeout
+    while (retries > 0) {
+      try {
+        console.log(`🔄 Attempting fetch (${3 - retries}/3)...`);
+        response = await fetch(apiUrl.toString(), {
+          method: 'GET',
+          headers: {
+            'User-Agent': 'SandTV/1.0',
+            'Accept': 'application/json',
+          },
+          redirect: 'follow',
+          signal: controller.signal,
+        });
+        
+        // Se arriviamo qui, la richiesta è andata a buon fine
+        clearTimeout(timeout);
+        console.log('✅ Fetch successful after', 3 - retries, 'attempts');
+        break;
+      } catch (fetchError) {
+        lastError = fetchError;
+        retries--;
+        console.error(`❌ Fetch error (attempt ${3 - retries}/3):`, fetchError.message);
+        
+        if (fetchError.name === 'AbortError') {
+          clearTimeout(timeout);
+          console.error('❌ Timeout - server too slow or not responding');
+          return {
+            statusCode: 504,
+            headers,
+            body: JSON.stringify({ 
+              error: 'Timeout: il server Xtream non risponde. Verifica che il server sia online e le credenziali corrette.' 
+            }),
+          };
+        }
+        
+        // Se non ci sono più retry, fallisce
+        if (retries === 0) {
+          clearTimeout(timeout);
+          throw fetchError;
+        }
+        
+        // Aspetta 1 secondo prima di ritentare
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
-      throw fetchError;
     }
 
     clearTimeout(timeout);

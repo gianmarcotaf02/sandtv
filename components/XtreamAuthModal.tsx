@@ -57,10 +57,14 @@ const XtreamAuthModal: React.FC<XtreamAuthModalProps> = ({ isOpen, onClose, onSu
         console.error('❌ Connection failed:', errorMsg);
         
         // Messaggi più specifici
-        if (errorMsg.includes('Errore proxy')) {
+        if (errorMsg.includes('Timeout') || errorMsg.includes('timeout')) {
+          setError('⏱️ Il server Xtream non risponde. Possibili cause:\n• Server offline o lento\n• Credenziali non valide\n• Server blocca connessioni esterne\n\nVerifica che il server sia raggiungibile e le credenziali corrette.');
+        } else if (errorMsg.includes('Errore proxy')) {
           setError('⚠️ Proxy non disponibile. Usa "netlify dev" per testare in locale, oppure deploya su Netlify.');
         } else if (errorMsg.includes('Credenziali')) {
           setError('❌ Credenziali non valide. Verifica username e password.');
+        } else if (errorMsg.includes('CORS')) {
+          setError('🔒 Errore CORS: il server blocca le richieste dal browser. Assicurati che il proxy Netlify sia attivo.');
         } else {
           setError(`❌ ${errorMsg}`);
         }
