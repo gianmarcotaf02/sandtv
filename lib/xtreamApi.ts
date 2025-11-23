@@ -189,6 +189,8 @@ export class XtreamApiClient {
    * Esegui richiesta API con fallback diretto
    */
   private async fetchWithFallback(action: string, params?: Record<string, string | number>): Promise<Response> {
+    let proxyError: any = null;
+    
     // Prova prima con il proxy
     try {
       const proxyUrl = this.getProxyUrl(action, params);
@@ -204,18 +206,38 @@ export class XtreamApiClient {
         return response;
       }
       
+      // Proxy non disponibile, prova a leggere l'errore
+      const errorText = await response.text().catch(() => 'Unknown error');
+      console.log('⚠️ Proxy error response:', errorText.substring(0, 200));
+      proxyError = errorText;
+      
       console.log('⚠️ Proxy unavailable (status ' + response.status + '), trying direct...');
     } catch (error) {
-      console.log('⚠️ Proxy error:', error, '- trying direct...');
+      console.log('⚠️ Proxy fetch error:', error instanceof Error ? error.message : String(error));
+      proxyError = error;
     }
 
     // Fallback: chiamata diretta (potrebbe avere problemi CORS)
-    const directUrl = this.buildUrl(action, params);
-    console.log('🔄 Trying direct:', directUrl);
-    return fetch(directUrl, {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
-    });
+    try {
+      const directUrl = this.buildUrl(action, params);
+      console.log('🔄 Trying direct API call:', directUrl);
+      const response = await fetch(directUrl, {
+        method: 'GET',
+        headers: { 
+          'Accept': 'application/json',
+          'User-Agent': 'SandTV/1.0'
+        },
+      });
+      
+      console.log('✅ Direct call response:', response.status);
+      return response;
+    } catch (directError) {
+      console.error('❌ Direct call also failed:', directError instanceof Error ? directError.message : String(directError));
+      console.error('❌ Original proxy error was:', proxyError);
+      
+      // Se entrambi falliscono, rilancia l'errore del proxy
+      throw new Error('Proxy non disponibile e chiamata diretta fallita. Verifica che le Netlify Functions siano deployate correttamente.');
+    }
   }
 
 
