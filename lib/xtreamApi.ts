@@ -185,6 +185,39 @@ export class XtreamApiClient {
     return proxyUrl.toString();
   }
 
+  /**
+   * Esegui richiesta API con fallback diretto
+   */
+  private async fetchWithFallback(action: string, params?: Record<string, string | number>): Promise<Response> {
+    // Prova prima con il proxy
+    try {
+      const proxyUrl = this.getProxyUrl(action, params);
+      console.log('🔄 Trying proxy:', proxyUrl);
+      const response = await fetch(proxyUrl, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+      });
+      
+      // Se il proxy risponde, usa la sua risposta (anche se è un errore)
+      if (response.status !== 502 && response.status !== 503 && response.status !== 504) {
+        console.log('✅ Proxy response:', response.status);
+        return response;
+      }
+      
+      console.log('⚠️ Proxy unavailable (status ' + response.status + '), trying direct...');
+    } catch (error) {
+      console.log('⚠️ Proxy error:', error, '- trying direct...');
+    }
+
+    // Fallback: chiamata diretta (potrebbe avere problemi CORS)
+    const directUrl = this.buildUrl(action, params);
+    console.log('🔄 Trying direct:', directUrl);
+    return fetch(directUrl, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+    });
+  }
+
 
 
 
@@ -193,15 +226,9 @@ export class XtreamApiClient {
    */
   async testConnection(): Promise<{ success: boolean; error?: string }> {
     try {
-      const url = this.getProxyUrl('get_live_categories');
-      console.log('🔗 Testing Xtream via proxy:', url);
+      console.log('🔗 Testing Xtream connection...');
       
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-        },
-      });
+      const response = await this.fetchWithFallback('get_live_categories');
       
       console.log('📡 Response status:', response.status);
       console.log('📡 Response type:', response.type);
@@ -271,8 +298,7 @@ export class XtreamApiClient {
     const cached = this.getFromCache<XtreamCategory[]>(cacheKey);
     if (cached !== undefined) return cached;
 
-    const url = this.getProxyUrl('get_live_categories');
-    const response = await fetch(url);
+    const response = await this.fetchWithFallback('get_live_categories');
     const data = await response.json();
 
     this.setCache(cacheKey, Array.isArray(data) ? data : []);
@@ -288,8 +314,7 @@ export class XtreamApiClient {
     const cached = this.getFromCache<XtreamLiveChannel[]>(cacheKey);
     if (cached !== undefined) return cached;
 
-    const url = this.getProxyUrl('get_live_streams', params);
-    const response = await fetch(url);
+    const response = await this.fetchWithFallback('get_live_streams', params);
     const data = await response.json();
 
     this.setCache(cacheKey, Array.isArray(data) ? data : []);
@@ -304,8 +329,7 @@ export class XtreamApiClient {
     const cached = this.getFromCache<XtreamCategory[]>(cacheKey);
     if (cached !== undefined) return cached;
 
-    const url = this.getProxyUrl('get_vod_categories');
-    const response = await fetch(url);
+    const response = await this.fetchWithFallback('get_vod_categories');
     const data = await response.json();
 
     this.setCache(cacheKey, Array.isArray(data) ? data : []);
@@ -321,8 +345,7 @@ export class XtreamApiClient {
     const cached = this.getFromCache<XtreamVOD[]>(cacheKey);
     if (cached !== undefined) return cached;
 
-    const url = this.getProxyUrl('get_vod_streams', params);
-    const response = await fetch(url);
+    const response = await this.fetchWithFallback('get_vod_streams', params);
     const data = await response.json();
 
     this.setCache(cacheKey, Array.isArray(data) ? data : []);
@@ -337,8 +360,7 @@ export class XtreamApiClient {
     const cached = this.getFromCache<XtreamVOD>(cacheKey);
     if (cached !== undefined) return cached;
 
-    const url = this.getProxyUrl('get_vod_info', { vod_id: vodId });
-    const response = await fetch(url);
+    const response = await this.fetchWithFallback('get_vod_info', { vod_id: vodId });
     const data = await response.json();
 
     if (data && data.info) {
@@ -356,8 +378,7 @@ export class XtreamApiClient {
     const cached = this.getFromCache<XtreamCategory[]>(cacheKey);
     if (cached !== undefined) return cached;
 
-    const url = this.getProxyUrl('get_series_categories');
-    const response = await fetch(url);
+    const response = await this.fetchWithFallback('get_series_categories');
     const data = await response.json();
 
     this.setCache(cacheKey, Array.isArray(data) ? data : []);
@@ -373,8 +394,7 @@ export class XtreamApiClient {
     const cached = this.getFromCache<XtreamSeries[]>(cacheKey);
     if (cached !== undefined) return cached;
 
-    const url = this.getProxyUrl('get_series', params);
-    const response = await fetch(url);
+    const response = await this.fetchWithFallback('get_series', params);
     const data = await response.json();
 
     this.setCache(cacheKey, Array.isArray(data) ? data : []);
@@ -389,8 +409,7 @@ export class XtreamApiClient {
     const cached = this.getFromCache<XtreamSeriesEpisode[]>(cacheKey);
     if (cached !== undefined) return cached;
 
-    const url = this.getProxyUrl('get_series_info', { series_id: seriesId });
-    const response = await fetch(url);
+    const response = await this.fetchWithFallback('get_series_info', { series_id: seriesId });
     const data = await response.json();
 
     const episodes = data?.episodes || {};
@@ -408,8 +427,7 @@ export class XtreamApiClient {
     const cached = this.getFromCache<XtreamEPGProgram[]>(cacheKey);
     if (cached !== undefined) return cached;
 
-    const url = this.getProxyUrl('get_epg', { stream_id: channelId });
-    const response = await fetch(url);
+    const response = await this.fetchWithFallback('get_epg', { stream_id: channelId });
     const data = await response.json();
 
     this.setCache(cacheKey, Array.isArray(data) ? data : []);
@@ -424,11 +442,10 @@ export class XtreamApiClient {
     const cached = this.getFromCache<XtreamEPGProgram[]>(cacheKey);
     if (cached !== undefined) return cached;
 
-    const url = this.getProxyUrl('get_epg_range', {
+    const response = await this.fetchWithFallback('get_epg_range', {
       range_start: startTime,
       range_end: endTime,
     });
-    const response = await fetch(url);
     const data = await response.json();
 
     this.setCache(cacheKey, Array.isArray(data) ? data : []);

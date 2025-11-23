@@ -26,31 +26,55 @@ const XtreamAuthModal: React.FC<XtreamAuthModalProps> = ({ isOpen, onClose, onSu
       return;
     }
 
+    // Valida URL server
+    try {
+      const url = new URL(server);
+      if (!url.protocol.startsWith('http')) {
+        setError('URL non valido: usa http:// o https://');
+        return;
+      }
+    } catch {
+      setError('URL non valido: deve iniziare con http:// o https://');
+      return;
+    }
+
     setIsLoading(true);
     setError('');
 
     try {
       const credentials: XtreamCredentials = { server, username, password };
-      const isConnected = await testXtreamConnection(credentials);
+      
+      console.log('🔐 Testing connection with credentials:', {
+        server: credentials.server,
+        username: credentials.username,
+        passwordLength: credentials.password.length,
+      });
 
-      if (!isConnected) {
-        setError('Credenziali non valide o server non raggiungibile');
+      const result = await testXtreamConnection(credentials);
+
+      if (!result) {
+        setError('❌ Credenziali non valide o server non raggiungibile. Verifica URL, username e password.');
         setIsLoading(false);
         return;
       }
 
       // Connessione OK, carica dati completi
-      toast.loading('Caricamento playlist Xtream...');
+      toast.loading('✅ Connesso! Caricamento playlist...');
       const data = await parseXtreamPlaylist(credentials);
       
       toast.dismiss();
-      toast.success(`Caricati ${data.channels.length} canali live`);
+      
+      const totalChannels = data.channels.length + data.vodChannels.length + data.seriesChannels.length;
+      toast.success(`✅ Caricati ${totalChannels} contenuti (${data.channels.length} live, ${data.vodChannels.length} VOD, ${data.seriesChannels.length} serie)`);
       
       onSuccess(credentials, data);
       handleClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Errore connessione');
+      console.error('❌ Connection error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Errore sconosciuto';
+      setError(`❌ Errore: ${errorMessage}`);
       toast.dismiss();
+      toast.error('Errore di connessione');
     } finally {
       setIsLoading(false);
     }
