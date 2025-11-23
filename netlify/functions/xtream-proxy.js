@@ -23,8 +23,11 @@ exports.handler = async (event) => {
 
   const { server, username, password, action } = event.queryStringParameters || {};
 
+  console.log('📥 Proxy request:', { server: server?.substring(0, 50), action });
+
   // Valida parametri
   if (!server || !username || !password || !action) {
+    console.log('❌ Missing params');
     return {
       statusCode: 400,
       headers,
@@ -38,12 +41,15 @@ exports.handler = async (event) => {
     // Valida server URL
     let serverUrl;
     try {
-      serverUrl = new URL(decodeURIComponent(server));
+      const decodedServer = decodeURIComponent(server);
+      console.log('🔍 Decoded server:', decodedServer);
+      serverUrl = new URL(decodedServer);
     } catch (e) {
+      console.error('❌ Invalid URL:', e.message);
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ error: 'Invalid server URL' }),
+        body: JSON.stringify({ error: 'Invalid server URL: ' + e.message }),
       };
     }
 
@@ -55,11 +61,11 @@ exports.handler = async (event) => {
     apiUrl.searchParams.append('password', decodeURIComponent(password));
     apiUrl.searchParams.append('action', decodeURIComponent(action));
 
-    console.log('🔄 Proxying to:', apiUrl.toString());
+    console.log('🔄 Final URL:', apiUrl.toString());
 
     // Set timeout con AbortController
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000); // 8 secondi timeout
+    const timeout = setTimeout(() => controller.abort(), 5000); // 5 secondi timeout
 
     let response;
     try {
@@ -68,10 +74,12 @@ exports.handler = async (event) => {
         headers: {
           'User-Agent': 'SandTV/1.0',
         },
+        redirect: 'follow', // Segui max 20 redirect (default)
         signal: controller.signal,
       });
     } catch (fetchError) {
       clearTimeout(timeout);
+      console.error('❌ Fetch error:', fetchError.message);
       if (fetchError.name === 'AbortError') {
         return {
           statusCode: 504,
@@ -84,25 +92,36 @@ exports.handler = async (event) => {
 
     clearTimeout(timeout);
 
-    const body = await response.text();
-
     console.log('✅ Response status:', response.status);
+    console.log('✅ Response content-type:', response.headers.get('content-type'));
+
+    const body = await response.text();
+    console.log('✅ Response body length:', body.length, 'bytes');
+
+    // Prova a parsare come JSON per verificare validità
+    try {
+      const parsed = JSON.parse(body);
+      console.log('✅ Response is valid JSON, type:', typeof parsed);
+    } catch (e) {
+      console.log('⚠️  Response is not JSON:', e.message);
+    }
 
     return {
       statusCode: response.status,
       headers: {
         ...headers,
+        'Content-Type': response.headers.get('content-type') || 'application/json',
         'Cache-Control': 'public, max-age=3600',
       },
       body,
     };
   } catch (error) {
-    console.error('❌ Proxy error:', error);
+    console.error('❌ Proxy error:', error.message);
     return {
       statusCode: 502,
       headers,
       body: JSON.stringify({
-        error: 'Server error',
+        error: 'Proxy error',
         message: error.message,
       }),
     };

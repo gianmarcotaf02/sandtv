@@ -196,24 +196,34 @@ export class XtreamApiClient {
       const url = this.getProxyUrl('get_live_categories');
       console.log('🔗 Testing Xtream via proxy:', url);
       
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
+      
       console.log('📡 Response status:', response.status);
+      console.log('📡 Response type:', response.type);
       console.log('📡 Response headers:', {
         'content-type': response.headers.get('content-type'),
       });
 
       if (!response.ok) {
         const errorText = await response.text().catch(() => '');
-        console.error('❌ HTTP Error:', response.status, errorText);
+        console.error('❌ HTTP Error:', response.status, errorText.substring(0, 200));
         
         if (response.status === 401 || response.status === 403) {
           return { success: false, error: 'Credenziali non valide' };
+        }
+        if (response.status === 502 || response.status === 504) {
+          return { success: false, error: 'Errore proxy server' };
         }
         return { success: false, error: `HTTP ${response.status}` };
       }
 
       const bodyText = await response.text();
-      console.log('📄 Response body:', bodyText.substring(0, 500));
+      console.log('📄 Response body (first 300 chars):', bodyText.substring(0, 300));
       
       let data;
       try {
@@ -223,7 +233,7 @@ export class XtreamApiClient {
         return { success: false, error: 'Response non JSON dal server' };
       }
       
-      console.log('✅ Connection successful, parsed data:', data);
+      console.log('✅ Connection successful, parsed data type:', typeof data);
 
       // Se è un oggetto vuoto o array vuoto, connessione ok
       if (typeof data === 'object') {
