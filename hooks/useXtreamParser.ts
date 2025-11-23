@@ -59,6 +59,13 @@ export function useXtreamParser(): UseXtreamParserReturn {
         
         // 1. Carica SOLO categorie live (non VOD/serie per ora)
         const liveCategories = await client.getLiveCategories();
+        console.log('📦 Categorie ricevute:', liveCategories);
+        
+        if (!liveCategories || !Array.isArray(liveCategories) || liveCategories.length === 0) {
+          console.error('❌ Nessuna categoria ricevuta o formato invalido');
+          throw new Error('Impossibile caricare le categorie dal server Xtream');
+        }
+        
         console.log('✅ Caricate', liveCategories.length, 'categorie live');
 
         // 2. Carica canali live (limite prime 5 categorie per test)
@@ -70,6 +77,13 @@ export function useXtreamParser(): UseXtreamParserReturn {
         );
 
         const liveChannelsResults = await Promise.all(liveChannelsPromises);
+        console.log('📦 Risultati ricevuti:', liveChannelsResults);
+        
+        if (!liveChannelsResults || !Array.isArray(liveChannelsResults)) {
+          console.error('❌ Risultati canali non validi');
+          throw new Error('Formato dati canali non valido dal server');
+        }
+        
         console.log('📦 Risultati ricevuti:', liveChannelsResults.length);
         
         // Valida che tutti i risultati siano array
