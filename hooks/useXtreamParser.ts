@@ -55,40 +55,33 @@ export function useXtreamParser(): UseXtreamParserReturn {
       const playlistName = generateXtreamPlaylistName(credentials.server, credentials.username);
 
       try {
-        // 1. Carica categorie
-        const [liveCategories, vodCategories, seriesCategories] = await Promise.all([
-          client.getLiveCategories(),
-          client.getVODCategories(),
-          client.getSeriesCategories(),
-        ]);
+        console.log('📡 Caricamento canali live Xtream...');
+        
+        // 1. Carica SOLO categorie live (non VOD/serie per ora)
+        const liveCategories = await client.getLiveCategories();
+        console.log('✅ Caricate', liveCategories.length, 'categorie live');
 
-        // 2. Carica canali da tutte le categorie
-        const liveChannelsPromises = liveCategories.map((cat) =>
+        // 2. Carica canali live (limite prime 5 categorie per test)
+        const categoriesToLoad = liveCategories.slice(0, 5); // Solo prime 5 categorie
+        console.log('📺 Caricamento canali dalle prime', categoriesToLoad.length, 'categorie...');
+        
+        const liveChannelsPromises = categoriesToLoad.map((cat) =>
           client.getLiveChannels(cat.category_id)
         );
-        const vodPromises = vodCategories.map((cat) => client.getVOD(cat.category_id));
-        const seriesPromises = seriesCategories.map((cat) => client.getSeries(cat.category_id));
 
-        const [allLiveChannels, allVODs, allSeries] = await Promise.all([
-          Promise.all(liveChannelsPromises).then((results) => results.flat()),
-          Promise.all(vodPromises).then((results) => results.flat()),
-          Promise.all(seriesPromises).then((results) => results.flat()),
-        ]);
+        const allLiveChannels = await Promise.all(liveChannelsPromises).then((results) => results.flat());
+        console.log('✅ Caricati', allLiveChannels.length, 'canali live');
 
         // 3. Converti a formato app
         const channels = allLiveChannels.map((ch) =>
           parseXtreamLiveChannel(ch, (streamId) => client.getStreamUrl(streamId, 'live'))
         );
 
-        const vodChannels = allVODs.map((vod) =>
-          parseXtreamVOD(vod, (streamId) => client.getStreamUrl(streamId, 'vod'))
-        );
-
-        const seriesChannels = allSeries.map((series) =>
-          parseXtreamSeries(series, (seriesId) =>
-            client.getSeriesStreamUrl(seriesId, 1, 1) // Dummy per primo episodio
-          )
-        );
+        // VOD e Serie: array vuoti per ora (caricamento lazy in futuro)
+        const vodChannels: Channel[] = [];
+        const seriesChannels: Channel[] = [];
+        
+        console.log('ℹ️ VOD e Serie non caricati (troppo grande, implementare lazy loading)');
 
         // 4. Carica EPG per canali live
         let epgData: Record<string, Program[]> = {};
