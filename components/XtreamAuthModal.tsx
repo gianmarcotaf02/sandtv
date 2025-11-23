@@ -50,7 +50,16 @@ const XtreamAuthModal: React.FC<XtreamAuthModalProps> = ({ isOpen, onClose, onSu
         passwordLength: credentials.password.length,
       });
 
+      console.log('🔄 Calling testXtreamConnection...');
       const result = await testXtreamConnection(credentials);
+      console.log('📥 testXtreamConnection result:', result);
+
+      if (!result || typeof result !== 'object') {
+        console.error('❌ Invalid result from testXtreamConnection:', result);
+        setError('Errore interno: risposta non valida dal test di connessione');
+        setIsLoading(false);
+        return;
+      }
 
       if (!result.success) {
         const errorMsg = result.error || 'Server non raggiungibile';
@@ -75,12 +84,23 @@ const XtreamAuthModal: React.FC<XtreamAuthModalProps> = ({ isOpen, onClose, onSu
 
       // Connessione OK, carica dati completi
       toast.loading('✅ Connesso! Caricamento playlist...');
+      
+      console.log('🔄 Calling parseXtreamPlaylist...');
       const data = await parseXtreamPlaylist(credentials);
+      console.log('📥 parseXtreamPlaylist result:', data);
+      
+      if (!data || typeof data !== 'object') {
+        console.error('❌ Invalid data from parseXtreamPlaylist:', data);
+        setError('Errore interno: dati non validi dal parsing playlist');
+        toast.dismiss();
+        setIsLoading(false);
+        return;
+      }
       
       toast.dismiss();
       
-      const totalChannels = data.channels.length + data.vodChannels.length + data.seriesChannels.length;
-      toast.success(`✅ Caricati ${totalChannels} contenuti (${data.channels.length} live, ${data.vodChannels.length} VOD, ${data.seriesChannels.length} serie)`);
+      const totalChannels = (data.channels?.length || 0) + (data.vodChannels?.length || 0) + (data.seriesChannels?.length || 0);
+      toast.success(`✅ Caricati ${totalChannels} contenuti (${data.channels?.length || 0} live, ${data.vodChannels?.length || 0} VOD, ${data.seriesChannels?.length || 0} serie)`);
       
       onSuccess(credentials, data);
       handleClose();
