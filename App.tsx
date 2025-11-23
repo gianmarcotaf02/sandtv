@@ -496,7 +496,7 @@ const App: React.FC = () => {
           user={user}
           onOpenAuth={() => setIsAuthModalOpen(true)}
           onLogout={handleLogout}
-          onOpenXtreamAuth={() => setIsXtreamAuthModalOpen(true)}
+          // onOpenXtreamAuth={() => setIsXtreamAuthModalOpen(true)} // TODO: Fix Xtream proxy
           onSelectPlaylist={handleSelectPlaylist}
           onNewPlaylist={handleNewPlaylist}
         />
