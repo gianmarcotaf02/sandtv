@@ -98,7 +98,26 @@ export function useXtreamParser(): UseXtreamParserReturn {
           .filter(ch => ch && ch.stream_id && ch.name) // Valida ogni canale
           .map((ch) => {
             try {
-              return parseXtreamLiveChannel(ch, (streamId) => client.getStreamUrl(streamId, 'live'));
+              // Costruisci URL stream direttamente invece di passare funzione
+              const streamUrl = `${credentials.server}/live/${credentials.username}/${credentials.password}/${ch.stream_id}.m3u8`;
+              
+              // Crea oggetto Channel manualmente per evitare problemi con funzioni
+              const channelObj: Channel = {
+                id: `xtream_live_${ch.stream_id}`,
+                name: ch.name,
+                url: streamUrl,
+                logo: ch.stream_icon || null,
+                group: ch.category_name || 'Live',
+                tvg: {
+                  id: `xtream_${ch.stream_id}`,
+                  name: ch.name,
+                  logo: ch.stream_icon || null,
+                },
+                contentType: 'live' as any,
+                contentTypeConfidence: 1.0,
+              };
+              
+              return channelObj;
             } catch (error) {
               console.error('❌ Errore parsing canale:', ch.name, error);
               return null;
