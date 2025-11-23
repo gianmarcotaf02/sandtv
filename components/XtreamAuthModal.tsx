@@ -52,8 +52,19 @@ const XtreamAuthModal: React.FC<XtreamAuthModalProps> = ({ isOpen, onClose, onSu
 
       const result = await testXtreamConnection(credentials);
 
-      if (!result) {
-        setError('❌ Credenziali non valide o server non raggiungibile. Verifica URL, username e password.');
+      if (!result.success) {
+        const errorMsg = result.error || 'Server non raggiungibile';
+        console.error('❌ Connection failed:', errorMsg);
+        
+        // Messaggi più specifici
+        if (errorMsg.includes('Errore proxy')) {
+          setError('⚠️ Proxy non disponibile. Usa "netlify dev" per testare in locale, oppure deploya su Netlify.');
+        } else if (errorMsg.includes('Credenziali')) {
+          setError('❌ Credenziali non valide. Verifica username e password.');
+        } else {
+          setError(`❌ ${errorMsg}`);
+        }
+        
         setIsLoading(false);
         return;
       }

@@ -28,7 +28,7 @@ export interface UseXtreamParserReturn {
     epgData: Record<string, Program[]>;
     playlistName: string;
   }>;
-  testXtreamConnection: (credentials: XtreamCredentials) => Promise<boolean>;
+  testXtreamConnection: (credentials: XtreamCredentials) => Promise<{ success: boolean; error?: string }>;
 }
 
 export function useXtreamParser(): UseXtreamParserReturn {
@@ -39,10 +39,10 @@ export function useXtreamParser(): UseXtreamParserReturn {
     try {
       const client = createXtreamClient(credentials);
       const result = await client.testConnection();
-      return result.success;
+      return result;
     } catch (error) {
       console.error('Xtream connection test failed:', error);
-      return false;
+      return { success: false, error: error instanceof Error ? error.message : 'Errore sconosciuto' };
     }
   }, []);
 
