@@ -324,12 +324,21 @@ export class XtreamApiClient {
     const cached = this.getFromCache<XtreamCategory[]>(cacheKey);
     if (cached !== undefined) return cached;
 
-    const response = await this.fetchWithFallback('get_live_categories');
-    const text = await response.text();
-    const data = this.safeJsonParse(text, []);
+    try {
+      const response = await this.fetchWithFallback('get_live_categories');
+      if (!response || !response.text) {
+        console.error('❌ Invalid response object:', response);
+        return [];
+      }
+      const text = await response.text();
+      const data = this.safeJsonParse(text, []);
 
-    this.setCache(cacheKey, Array.isArray(data) ? data : []);
-    return Array.isArray(data) ? data : [];
+      this.setCache(cacheKey, Array.isArray(data) ? data : []);
+      return Array.isArray(data) ? data : [];
+    } catch (error) {
+      console.error('❌ Error in getLiveCategories:', error);
+      return [];
+    }
   }
 
   /**
@@ -341,12 +350,21 @@ export class XtreamApiClient {
     const cached = this.getFromCache<XtreamLiveChannel[]>(cacheKey);
     if (cached !== undefined) return cached;
 
-    const response = await this.fetchWithFallback('get_live_streams', params);
-    const text = await response.text();
-    const data = this.safeJsonParse(text, []);
+    try {
+      const response = await this.fetchWithFallback('get_live_streams', params);
+      if (!response || !response.text) {
+        console.error('❌ Invalid response object:', response);
+        return [];
+      }
+      const text = await response.text();
+      const data = this.safeJsonParse(text, []);
 
-    this.setCache(cacheKey, Array.isArray(data) ? data : []);
-    return Array.isArray(data) ? data : [];
+      this.setCache(cacheKey, Array.isArray(data) ? data : []);
+      return Array.isArray(data) ? data : [];
+    } catch (error) {
+      console.error('❌ Error in getLiveChannels:', error);
+      return [];
+    }
   }
 
   /**
