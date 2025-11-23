@@ -167,10 +167,10 @@ export class XtreamApiClient {
   }
 
   /**
-   * Costruisci URL al proxy backend Netlify
+   * Costruisci URL al proxy backend (Vercel Serverless Function)
    */
   private getProxyUrl(action: string, params?: Record<string, string | number>): string {
-    const proxyUrl = new URL('/.netlify/functions/xtream-proxy', window.location.origin);
+    const proxyUrl = new URL('/api/xtream-proxy', window.location.origin);
     proxyUrl.searchParams.append('server', this.baseUrl);
     proxyUrl.searchParams.append('username', this.username);
     proxyUrl.searchParams.append('password', this.password);
