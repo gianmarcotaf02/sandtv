@@ -272,14 +272,18 @@ export class XtreamApiClient {
       }
 
       const bodyText = await response.text();
+      console.log('📄 Response body length:', bodyText.length, 'bytes');
       console.log('📄 Response body (first 300 chars):', bodyText.substring(0, 300));
       
       let data;
       try {
         data = JSON.parse(bodyText);
+        console.log('✅ JSON parsed successfully, type:', typeof data);
       } catch (e) {
-        console.error('❌ Response is not JSON:', e);
-        return { success: false, error: 'Response non JSON dal server' };
+        const errorMsg = e instanceof Error ? e.message : String(e);
+        console.error('❌ JSON parse error:', errorMsg);
+        console.error('❌ Invalid JSON around position:', bodyText.substring(Math.max(0, 3702300), 3702400));
+        return { success: false, error: 'Server ha restituito dati non validi (JSON malformato)' };
       }
       
       console.log('✅ Connection successful, parsed data type:', typeof data);
@@ -321,7 +325,8 @@ export class XtreamApiClient {
     if (cached !== undefined) return cached;
 
     const response = await this.fetchWithFallback('get_live_categories');
-    const data = await response.json();
+    const text = await response.text();
+    const data = this.safeJsonParse(text, []);
 
     this.setCache(cacheKey, Array.isArray(data) ? data : []);
     return Array.isArray(data) ? data : [];
@@ -337,7 +342,8 @@ export class XtreamApiClient {
     if (cached !== undefined) return cached;
 
     const response = await this.fetchWithFallback('get_live_streams', params);
-    const data = await response.json();
+    const text = await response.text();
+    const data = this.safeJsonParse(text, []);
 
     this.setCache(cacheKey, Array.isArray(data) ? data : []);
     return Array.isArray(data) ? data : [];
@@ -509,6 +515,19 @@ export class XtreamApiClient {
   }
 
   // ===== Utility privati =====
+
+  private safeJsonParse<T>(text: string, fallback: T): T {
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      const errorMsg = e instanceof Error ? e.message : String(e);
+      console.error('❌ JSON parse error:', errorMsg);
+      console.error('❌ Text length:', text.length);
+      console.error('❌ First 500 chars:', text.substring(0, 500));
+      console.error('❌ Last 500 chars:', text.substring(Math.max(0, text.length - 500)));
+      return fallback;
+    }
+  }
 
   private getFromCache<T>(key: string): T | undefined {
     const entry = this.cache.get(key);
