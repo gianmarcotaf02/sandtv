@@ -69,13 +69,30 @@ export function useXtreamParser(): UseXtreamParserReturn {
           client.getLiveChannels(cat.category_id)
         );
 
-        const allLiveChannels = await Promise.all(liveChannelsPromises).then((results) => results.flat());
-        console.log('✅ Caricati', allLiveChannels.length, 'canali live');
+        const liveChannelsResults = await Promise.all(liveChannelsPromises);
+        console.log('📦 Risultati ricevuti:', liveChannelsResults.length);
+        
+        // Valida che tutti i risultati siano array
+        const validResults = liveChannelsResults.filter(result => Array.isArray(result));
+        console.log('✅ Risultati validi:', validResults.length);
+        
+        const allLiveChannels = validResults.flat();
+        console.log('✅ Caricati', allLiveChannels.length, 'canali live totali');
 
-        // 3. Converti a formato app
-        const channels = allLiveChannels.map((ch) =>
-          parseXtreamLiveChannel(ch, (streamId) => client.getStreamUrl(streamId, 'live'))
-        );
+        // 3. Converti a formato app (con validazione)
+        const channels = allLiveChannels
+          .filter(ch => ch && ch.stream_id && ch.name) // Valida ogni canale
+          .map((ch) => {
+            try {
+              return parseXtreamLiveChannel(ch, (streamId) => client.getStreamUrl(streamId, 'live'));
+            } catch (error) {
+              console.error('❌ Errore parsing canale:', ch.name, error);
+              return null;
+            }
+          })
+          .filter(ch => ch !== null) as Channel[];
+        
+        console.log('✅ Convertiti', channels.length, 'canali');
 
         // VOD e Serie: array vuoti per ora (caricamento lazy in futuro)
         const vodChannels: Channel[] = [];
